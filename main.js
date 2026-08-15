@@ -669,8 +669,8 @@ async function handleMissionOutcome(isSuccess, reason) {
   if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
   arEngine.stop();
 
-  const currentTarget = state.targetsList[state.targetIndex];
-  const currentMemorial = state.memorialsList[state.memorialIndex];
+  const currentTarget = state.targetsList[state.targetIndex] || {};
+  const currentMemorial = state.memorialsList[state.memorialIndex] || {};
 
   const resultHeader = document.getElementById('result-header');
   const resultBadge = document.getElementById('result-badge');
@@ -678,80 +678,97 @@ async function handleMissionOutcome(isSuccess, reason) {
   const resultSubtitle = document.getElementById('result-subtitle');
   const evidenceImg = document.getElementById('result-evidence-img');
 
-  evidenceImg.src = state.capturedEvidence || currentTarget.faceImage;
-
-  if (isSuccess) {
-    resultHeader.className = 'result-header success';
-    resultBadge.textContent = 'MISSION ACCOMPLISHED // THREAT NEUTRALIZED';
-    resultTitle.textContent = 'GOOD JOB AGENT — NEVER FORGET';
-    resultSubtitle.textContent = `Target ${currentTarget.codename} successfully identified and documented in 3D AR space.`;
-    playSound('tributeChime');
-  } else {
-    resultHeader.className = 'result-header failed';
-    resultBadge.textContent = 'MISSION COMPROMISED';
-    resultTitle.textContent = reason === 'TIMEOUT' ? 'OPERATIONAL WINDOW EXPIRED' : 'TARGET MISSED';
-    resultSubtitle.textContent = reason === 'TIMEOUT'
-      ? 'The 5-second operational window closed before target confirmation.'
-      : 'Photo captured off-target. Crosshairs were not aligned in 3D space.';
-    playSound('beep', 300, 'sawtooth');
+  if (evidenceImg) {
+    evidenceImg.src = state.capturedEvidence || currentTarget.faceImage || '/assets/target1_mugshot.jpg';
   }
 
-  // Record outcome and calculate score in Convex DB
-  const outcomeData = await ConvexService.recordMissionOutcome({
-    agentCallsign: state.agentName,
-    targetCodename: currentTarget.codename,
-    outcome: isSuccess ? 'SUCCESS' : 'FAILED',
-    reason,
-    timeRemaining: isSuccess ? state.timeLeft : 0,
-    evidencePhoto: state.capturedEvidence,
-  });
-
-  if (outcomeData) {
-    state.agentScore = outcomeData.totalScore || state.agentScore;
-    state.agentRank = outcomeData.clearanceRank || state.agentRank;
-
-    const scoreValElem = document.getElementById('result-score-val');
-    const scoreBreakdownElem = document.getElementById('result-score-breakdown');
-    const promoBadge = document.getElementById('result-rank-promo');
-
-    if (isSuccess) {
-      scoreValElem.textContent = `+${outcomeData.scoreEarned.toLocaleString()} PTS`;
-      scoreBreakdownElem.textContent = `Base: 1,000 • Speed Bonus: +${outcomeData.timeBonus} • Time Left: ${state.timeLeft.toFixed(2)}s`;
-    } else {
-      scoreValElem.textContent = `+0 PTS`;
-      scoreBreakdownElem.textContent = `Mission unfulfilled: ${reason}`;
+  if (isSuccess) {
+    if (resultHeader) resultHeader.className = 'result-header success';
+    if (resultBadge) resultBadge.textContent = 'MISSION ACCOMPLISHED // THREAT NEUTRALIZED';
+    if (resultTitle) resultTitle.textContent = 'GOOD JOB AGENT — NEVER FORGET';
+    if (resultSubtitle) resultSubtitle.textContent = `Target ${currentTarget.codename || 'HOSTILE'} successfully neutralized in 3D AR space.`;
+    playSound('tributeChime');
+  } else {
+    if (resultHeader) resultHeader.className = 'result-header failed';
+    if (resultBadge) resultBadge.textContent = 'MISSION COMPROMISED';
+    if (resultTitle) resultTitle.textContent = reason === 'TIMEOUT' ? 'OPERATIONAL WINDOW EXPIRED' : 'TARGET ESCAPED';
+    if (resultSubtitle) {
+      resultSubtitle.textContent = reason === 'TIMEOUT'
+        ? 'The operational window closed before neutralizing the hostile.'
+        : 'Crosshairs were not aligned in 3D space.';
     }
-
-    if (outcomeData.promoted && promoBadge) {
-      promoBadge.style.display = 'block';
-      promoBadge.textContent = `🎖️ PROMOTED TO ${outcomeData.clearanceRank.toUpperCase()}!`;
-    } else if (promoBadge) {
-      promoBadge.style.display = 'none';
-    }
+    playSound('beep', 300, 'sawtooth');
   }
 
   // Populate In Memoriam Memorial Hero Card
   if (currentMemorial) {
-    document.getElementById('hero-image').src = currentMemorial.image;
-    document.getElementById('hero-name').textContent = currentMemorial.name;
-    document.getElementById('hero-unit').textContent = `${currentMemorial.rank} • ${currentMemorial.unit}`;
-    document.getElementById('hero-op').textContent = `${currentMemorial.operation} (${currentMemorial.dateOfMartyrdom})`;
-    document.getElementById('hero-decoration').textContent = currentMemorial.decoration.toUpperCase();
-    document.getElementById('hero-quote').textContent = currentMemorial.quote;
-    document.getElementById('hero-writeup').textContent = currentMemorial.writeUp;
-    document.getElementById('hero-salutes-count').textContent = `🇮🇳 ${(currentMemorial.salutesCount || 1947).toLocaleString()} Salutes Recorded`;
+    const hImg = document.getElementById('hero-image');
+    if (hImg) hImg.src = currentMemorial.image || '/assets/hero_memorial.jpg';
+    const hName = document.getElementById('hero-name');
+    if (hName) hName.textContent = currentMemorial.name || 'Indian Armed Forces Hero';
+    const hUnit = document.getElementById('hero-unit');
+    if (hUnit) hUnit.textContent = `${currentMemorial.rank || 'Martyr'} • ${currentMemorial.unit || 'Special Forces'}`;
+    const hOp = document.getElementById('hero-op');
+    if (hOp) hOp.textContent = `${currentMemorial.operation || 'Line of Duty'} (${currentMemorial.dateOfMartyrdom || ''})`;
+    const hDec = document.getElementById('hero-decoration');
+    if (hDec) hDec.textContent = (currentMemorial.decoration || 'Gallantry Award').toUpperCase();
+    const hQuote = document.getElementById('hero-quote');
+    if (hQuote) hQuote.textContent = currentMemorial.quote || '“I will either come back after hoisting the Tricolour, or I will come back wrapped in it.”';
+    const hWriteup = document.getElementById('hero-writeup');
+    if (hWriteup) hWriteup.textContent = currentMemorial.writeUp || '';
+    const hSalutes = document.getElementById('hero-salutes-count');
+    if (hSalutes) hSalutes.textContent = `🇮🇳 ${(currentMemorial.salutesCount || 1947).toLocaleString()} Salutes Recorded`;
   }
 
   // Reset salute button
   const saluteBtn = document.getElementById('btn-salute');
   const saluteText = document.getElementById('salute-text');
-  saluteText.textContent = 'PAY RESPECTS & SALUTE';
+  if (saluteText) saluteText.textContent = 'PAY RESPECTS & SALUTE';
   if (saluteBtn) {
     saluteBtn.style.background = 'rgba(255, 255, 255, 0.06)';
     saluteBtn.style.borderColor = 'rgba(255, 153, 51, 0.6)';
   }
 
+  // IMMEDIATELY switch to Result Screen!
   showScreen('result');
+
+  // Asynchronously record score in Convex DB in background without blocking UI
+  try {
+    const outcomeData = await ConvexService.recordMissionOutcome({
+      agentCallsign: state.agentName,
+      targetCodename: currentTarget.codename || 'HOSTILE',
+      outcome: isSuccess ? 'SUCCESS' : 'FAILED',
+      reason,
+      timeRemaining: isSuccess ? state.timeLeft : 0,
+      evidencePhoto: null, // Avoid giant base64 payload over network
+    });
+
+    if (outcomeData) {
+      state.agentScore = outcomeData.totalScore || state.agentScore;
+      state.agentRank = outcomeData.clearanceRank || state.agentRank;
+
+      const scoreValElem = document.getElementById('result-score-val');
+      const scoreBreakdownElem = document.getElementById('result-score-breakdown');
+      const promoBadge = document.getElementById('result-rank-promo');
+
+      if (isSuccess && scoreValElem) {
+        scoreValElem.textContent = `+${outcomeData.scoreEarned.toLocaleString()} PTS`;
+        if (scoreBreakdownElem) scoreBreakdownElem.textContent = `Base: 1,000 • Speed Bonus: +${outcomeData.timeBonus} • Time Left: ${state.timeLeft.toFixed(2)}s`;
+      } else if (scoreValElem) {
+        scoreValElem.textContent = `+0 PTS`;
+        if (scoreBreakdownElem) scoreBreakdownElem.textContent = `Mission unfulfilled: ${reason}`;
+      }
+
+      if (outcomeData.promoted && promoBadge) {
+        promoBadge.style.display = 'block';
+        promoBadge.textContent = `🎖️ PROMOTED TO ${outcomeData.clearanceRank.toUpperCase()}!`;
+      } else if (promoBadge) {
+        promoBadge.style.display = 'none';
+      }
+    }
+  } catch (err) {
+    console.warn('[Convex] Outcome record error:', err);
+  }
 }
 
 // Execute init immediately if DOM is already ready, or on DOMContentLoaded
