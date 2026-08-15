@@ -3,6 +3,7 @@ import { targets as fallbackTargets } from './data/targets.js';
 import { memorials as fallbackMemorials } from './data/memorials.js';
 import { Sound } from './utils/sound.js';
 import { arEngine } from './utils/arEngine.js';
+import { shareMemorialHero, closeMemorialShareModal } from './utils/memorialShare.js';
 
 // --- GAME STATE ---
 const state = {
@@ -409,6 +410,26 @@ async function init() {
       }
     }
   });
+
+  // Share Memorial Tribute Button
+  document.getElementById('btn-share-memoriam')?.addEventListener('click', async () => {
+    const curMem = state.memorialsList[state.memorialIndex];
+    if (curMem) {
+      playSound('buttonTap');
+      await shareMemorialHero(curMem);
+    }
+  });
+
+  // Close Share Modal Listeners
+  document.getElementById('btn-close-share-modal')?.addEventListener('click', () => {
+    closeMemorialShareModal();
+  });
+
+  document.getElementById('share-memorial-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'share-memorial-modal') {
+      closeMemorialShareModal();
+    }
+  });
 }
 
 // Fullscreen Tricolour National Pride Wave & Confetti Animation
@@ -643,21 +664,39 @@ function loadHeroesScreen() {
   if (!container) return;
   container.innerHTML = '';
 
-  state.memorialsList.forEach((hero) => {
+  state.memorialsList.forEach((hero, index) => {
     const card = document.createElement('div');
     card.className = 'hero-gallery-card';
     card.innerHTML = `
-      <img src="${hero.image}" alt="${hero.name}" />
+      <img src="${hero.image || '/assets/hero_memorial.jpg'}" alt="${hero.name}" />
       <div class="hero-gallery-body">
         <span class="archive-threat-tag" style="color: var(--accent-gold);">${hero.decoration}</span>
         <h3>${hero.name}</h3>
         <p class="hero-gallery-desc"><b>Unit:</b> ${hero.unit}</p>
         <p class="hero-gallery-desc"><b>Action:</b> ${hero.operation}</p>
         <p class="hero-gallery-desc" style="font-style: italic; color: #fff;">${hero.quote}</p>
-        <span class="hero-salutes-live">🇮🇳 ${(hero.salutesCount || 0).toLocaleString()} National Salutes</span>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px; flex-wrap: wrap; gap: 6px;">
+          <span class="hero-salutes-live">🇮🇳 ${(hero.salutesCount || 0).toLocaleString()} National Salutes</span>
+          <button class="btn-hero-share" data-hero-index="${index}">
+            <span>📤 Share Tribute</span>
+          </button>
+        </div>
       </div>
     `;
     container.appendChild(card);
+  });
+
+  // Attach share event listeners to hero cards
+  container.querySelectorAll('.btn-hero-share').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.getAttribute('data-hero-index'), 10);
+      const hero = state.memorialsList[idx];
+      if (hero) {
+        playSound('buttonTap');
+        await shareMemorialHero(hero);
+      }
+    });
   });
 
   showScreen('heroes');

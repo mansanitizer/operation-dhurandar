@@ -501,6 +501,10 @@
                 <span class="salute-icon">🇮🇳</span>
                 <span id="salute-text">PAY RESPECTS & SALUTE</span>
               </button>
+              <button id="btn-share-memoriam" class="btn-share-memoriam">
+                <span class="share-icon">📤</span>
+                <span id="share-memoriam-text">SHARE MEMORIAL TRIBUTE</span>
+              </button>
             </div>
           </div>
         </div>
@@ -634,6 +638,62 @@
         <div class="delight-quote" id="delight-hero-tribute">“THE NATION BOWS TO YOUR SUPREME SACRIFICE”</div>
       </div>
       <canvas id="salute-confetti-canvas" class="salute-confetti-canvas"></canvas>
+    </div>
+
+    <!-- IN MEMORIAM TRIBUTE SHARE MODAL -->
+    <div id="share-memorial-modal" class="tactical-modal-backdrop" style="display: none;">
+      <div class="share-modal-dialog">
+        <div class="share-modal-header">
+          <div class="share-modal-title-wrap">
+            <span class="share-modal-kicker">🇮🇳 TACTICAL COMMENDATION // SHARE TRIBUTE</span>
+            <h3 id="share-modal-hero-title">Major Sandeep Unnikrishnan, AC</h3>
+            <span id="share-modal-hero-dec" class="share-modal-dec">ASHOKA CHAKRA</span>
+          </div>
+          <button id="btn-close-share-modal" class="btn-modal-close" aria-label="Close">✕</button>
+        </div>
+
+        <div class="share-modal-body">
+          <div class="share-poster-preview-card">
+            <img id="share-modal-preview" class="share-poster-img" alt="Memorial Tribute Poster Preview" />
+            <div class="share-poster-badge">HD POSTER GENERATED</div>
+          </div>
+
+          <div class="share-channels-section">
+            <p class="share-channels-heading">HONOR & SHARE TO EXTERNAL SITES</p>
+            
+            <div class="share-buttons-grid">
+              <button id="btn-share-whatsapp" class="btn-share-platform share-wa">
+                <span class="platform-icon">💬</span>
+                <span class="platform-name">WhatsApp</span>
+              </button>
+              <button id="btn-share-twitter" class="btn-share-platform share-x">
+                <span class="platform-icon">𝕏</span>
+                <span class="platform-name">X / Twitter</span>
+              </button>
+              <button id="btn-share-telegram" class="btn-share-platform share-tg">
+                <span class="platform-icon">✈️</span>
+                <span class="platform-name">Telegram</span>
+              </button>
+              <button id="btn-share-facebook" class="btn-share-platform share-fb">
+                <span class="platform-icon">📘</span>
+                <span class="platform-name">Facebook</span>
+              </button>
+            </div>
+
+            <div class="share-utility-actions">
+              <button id="btn-share-download" class="btn-share-action btn-gold-action">
+                <span>📥 DOWNLOAD POSTER (PNG)</span>
+              </button>
+              <button id="btn-share-copy" class="btn-share-action btn-outline-action">
+                <span>📋 COPY IMAGE / TRIBUTE</span>
+              </button>
+              <button id="btn-share-native" class="btn-share-action btn-native-action" style="display: none;">
+                <span>📲 MORE SHARE OPTIONS</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
