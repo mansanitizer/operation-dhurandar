@@ -113,11 +113,11 @@ body, html {
   display: none;
   flex-direction: column;
   position: absolute;
-  top: 48px;
+  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 16px;
+  padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 16px) 16px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   opacity: 0;

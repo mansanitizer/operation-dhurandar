@@ -1,4 +1,4 @@
-// Web Audio API Procedural Sound FX Engine for Operation Dhurandar
+// Web Audio API Procedural Sound FX Engine & BGM Controller for Operation Dhurandar
 
 let audioCtx = null;
 
@@ -15,7 +15,102 @@ function getAudioContext() {
   return audioCtx;
 }
 
+// BGM State
+const BGM_SOURCES = [
+  'https://dhurandar-assets.pages.dev/audio/army_of_minotaur.mp3',
+  './assets/audio/army_of_minotaur.mp3',
+  './cdn-assets/audio/army_of_minotaur.mp3'
+];
+
+let bgmAudio = null;
+let bgmCurrentSrcIndex = 0;
+let bgmFadeInterval = null;
+let isBgmPlaying = false;
+const TARGET_BGM_VOLUME = 0.4;
+
+function initBgmAudio() {
+  if (bgmAudio) return bgmAudio;
+  
+  bgmAudio = new Audio();
+  bgmAudio.loop = true;
+  bgmAudio.volume = 0;
+  bgmAudio.preload = 'auto';
+  bgmAudio.src = BGM_SOURCES[bgmCurrentSrcIndex];
+
+  bgmAudio.addEventListener('error', (e) => {
+    console.warn(`BGM failed to load from ${BGM_SOURCES[bgmCurrentSrcIndex]}, trying fallback...`);
+    if (bgmCurrentSrcIndex < BGM_SOURCES.length - 1) {
+      bgmCurrentSrcIndex++;
+      bgmAudio.src = BGM_SOURCES[bgmCurrentSrcIndex];
+      if (isBgmPlaying) {
+        bgmAudio.play().catch(err => console.warn('BGM fallback play error:', err));
+      }
+    }
+  });
+
+  return bgmAudio;
+}
+
 export const Sound = {
+  // --- BACKGROUND MUSIC ENGINE (MAIN MENU ONLY) ---
+  playMenuMusic() {
+    try {
+      const audio = initBgmAudio();
+      isBgmPlaying = true;
+      
+      if (bgmFadeInterval) clearInterval(bgmFadeInterval);
+      
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          // Smooth fade in
+          let vol = audio.volume;
+          bgmFadeInterval = setInterval(() => {
+            if (vol < TARGET_BGM_VOLUME) {
+              vol = Math.min(TARGET_BGM_VOLUME, vol + 0.04);
+              audio.volume = vol;
+            } else {
+              clearInterval(bgmFadeInterval);
+              bgmFadeInterval = null;
+            }
+          }, 40);
+        }).catch(err => {
+          console.warn('Autoplay blocked or audio load error:', err);
+        });
+      }
+    } catch (e) {
+      console.warn('playMenuMusic error:', e);
+    }
+  },
+
+  stopMenuMusic(immediate = false) {
+    if (!bgmAudio) return;
+    isBgmPlaying = false;
+    
+    if (bgmFadeInterval) clearInterval(bgmFadeInterval);
+
+    if (immediate) {
+      bgmAudio.pause();
+      bgmAudio.currentTime = 0;
+      bgmAudio.volume = 0;
+      return;
+    }
+
+    // Smooth fade out
+    let vol = bgmAudio.volume;
+    bgmFadeInterval = setInterval(() => {
+      if (vol > 0.02) {
+        vol = Math.max(0, vol - 0.05);
+        bgmAudio.volume = vol;
+      } else {
+        bgmAudio.volume = 0;
+        bgmAudio.pause();
+        clearInterval(bgmFadeInterval);
+        bgmFadeInterval = null;
+      }
+    }, 30);
+  },
+
   // Beep when typing or clicking buttons
   beep(freq = 800, duration = 0.05, type = 'sine') {
     try {

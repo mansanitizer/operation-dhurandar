@@ -62,6 +62,15 @@ function showScreen(screenKey) {
       window.scrollTo(0, 0);
     } catch (e) {}
   }
+
+  // Manage Main Menu Background Music (Play exclusively on Main Menu)
+  if (screenKey === 'menu') {
+    if (state.soundEnabled) {
+      Sound.playMenuMusic();
+    }
+  } else {
+    Sound.stopMenuMusic();
+  }
 }
 
 // --- PRELOAD ASSETS ---
@@ -108,7 +117,14 @@ async function init() {
     btnSound.addEventListener('click', () => {
       state.soundEnabled = !state.soundEnabled;
       btnSound.textContent = state.soundEnabled ? '🔊' : '🔇';
-      if (state.soundEnabled) playSound('beep', 900);
+      if (state.soundEnabled) {
+        playSound('beep', 900);
+        if (state.currentScreen === 'menu') {
+          Sound.playMenuMusic();
+        }
+      } else {
+        Sound.stopMenuMusic();
+      }
     });
   }
 
@@ -814,7 +830,7 @@ async function handleMissionOutcome(isSuccess, reason) {
     if (resultHeader) resultHeader.className = 'result-header success';
     if (resultBadge) resultBadge.textContent = 'MISSION ACCOMPLISHED // THREAT NEUTRALIZED';
     if (resultTitle) resultTitle.textContent = 'GOOD JOB AGENT — NEVER FORGET';
-    if (resultSubtitle) resultSubtitle.textContent = `Target ${currentTarget.codename || 'HOSTILE'} successfully neutralized in 3D AR space.`;
+    if (resultSubtitle) resultSubtitle.textContent = `Target ${currentTarget.codename || 'HOSTILE'} successfully neutralized in the operational sector.`;
     playSound('tributeChime');
   } else {
     if (resultHeader) resultHeader.className = 'result-header failed';
@@ -823,7 +839,7 @@ async function handleMissionOutcome(isSuccess, reason) {
     if (resultSubtitle) {
       resultSubtitle.textContent = reason === 'TIMEOUT'
         ? 'The operational window closed before neutralizing the hostile.'
-        : 'Crosshairs were not aligned in 3D space.';
+        : 'Hostile evaded target acquisition before neutralization.';
     }
     playSound('beep', 300, 'sawtooth');
   }
@@ -884,7 +900,10 @@ async function handleMissionOutcome(isSuccess, reason) {
         if (scoreBreakdownElem) scoreBreakdownElem.textContent = `Base: 1,000 • Speed Bonus: +${outcomeData.timeBonus} • Time Left: ${state.timeLeft.toFixed(2)}s`;
       } else if (scoreValElem) {
         scoreValElem.textContent = `+0 PTS`;
-        if (scoreBreakdownElem) scoreBreakdownElem.textContent = `Mission unfulfilled: ${reason}`;
+        if (scoreBreakdownElem) {
+          const reasonText = reason === 'TIMEOUT' ? 'Operational window closed' : 'Target engagement unfulfilled';
+          scoreBreakdownElem.textContent = `Mission unfulfilled: ${reasonText}`;
+        }
       }
 
       if (outcomeData.promoted && promoBadge) {

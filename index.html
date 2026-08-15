@@ -11,32 +11,12 @@
 </head>
 <body>
   <div id="app" class="app-container">
-    <!-- TOP TACTICAL HEADER -->
-    <header class="top-nav">
-      <div class="nav-left">
-        <span class="live-dot"></span>
-        <span class="classified-tag">DIRECTORATE OF SPECIAL OPERATIONS</span>
-        <span class="db-status-badge" id="db-status-badge">
-          <span class="db-dot"></span> <span id="db-status-text">CONVEX DB // LIVE</span>
-        </span>
-      </div>
-      <div class="nav-right">
-        <button id="btn-sound-toggle" class="icon-btn" title="Toggle Tactical Audio" aria-label="Sound Toggle">🔊</button>
-      </div>
-    </header>
-
-    <!-- LIVE REAL-TIME OPERATIONS TICKER -->
-    <div class="live-ops-ticker" id="live-ops-ticker">
-      <span class="ticker-prefix">⚡ HQ INTEL:</span>
-      <span class="ticker-text" id="ticker-text">INITIALIZING QUANTUM ENCRYPTED LINK // CONVEX DB ONLINE</span>
-    </div>
-
     <!-- SCREEN 1: AUTHENTICATION / CLEARANCE -->
     <section id="screen-auth" class="screen active">
       <div class="auth-card">
         <!-- GRAND CINEMATIC BALIDAN SPECIAL FORCES MASTER EMBLEM -->
         <div class="hero-emblem-banner">
-          <svg class="master-balidan-emblem" viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg">
+          <svg class="master-balidan-emblem" viewBox="0 0 340 305" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="goldPlate" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stop-color="#fff0a6" />
@@ -123,29 +103,13 @@
               <line x1="82" y1="276" x2="258" y2="276" stroke="#138808" stroke-width="2" />
               <text x="170" y="272" text-anchor="middle" font-family="'Tiro Devanagari Hindi', 'Yatra One', serif" font-weight="bold" font-size="22" fill="url(#goldLight)" letter-spacing="4">बलिदान</text>
             </g>
-
-            <text x="170" y="324" text-anchor="middle" font-family="'Courier Prime', monospace" font-weight="700" font-size="8.5" fill="var(--accent-gold)" letter-spacing="3">SPECIAL FORCES • COMMANDO</text>
           </svg>
-        </div>
-
-        <div class="auth-header-text">
-          <p class="subtitle">INDIAN SPECIAL OPERATIONS COMMAND • CONVEX DB</p>
         </div>
 
         <div id="auth-form" class="auth-form">
           <div class="input-group">
             <label for="agent-name">OPERATIVE CALLSIGN / ID</label>
             <input type="text" id="agent-name" placeholder="e.g. DHURANDAR-1" autocomplete="off" />
-          </div>
-
-          <div class="input-group">
-            <label for="agent-squadron">SPECIAL FORCES REGIMENT</label>
-            <select id="agent-squadron">
-              <option value="PARA SF">🦅 1 PARA (SPECIAL FORCES)</option>
-              <option value="NSG BLACK CATS">⚡ 51 SAG (NSG BLACK CATS)</option>
-              <option value="MARCOS">🌊 MARCOS (MARINE COMMANDOS)</option>
-              <option value="GARUD">🪽 GARUD SPECIAL FORCES</option>
-            </select>
           </div>
 
           <div class="input-group">
@@ -228,7 +192,7 @@
             <div class="nav-number">03</div>
             <div class="nav-body">
               <span class="nav-title">TARGET RECON ARCHIVES</span>
-              <span class="nav-sub">CDN sprites, biometrics & UAPA intel</span>
+              <span class="nav-sub">Tactical dossiers, biometrics & UAPA intel</span>
             </div>
             <div class="nav-action-indicator">
               <span class="indicator-arrow">▶</span>
@@ -267,12 +231,6 @@
               <span class="indicator-arrow">✕</span>
             </div>
           </button>
-        </div>
-
-        <div class="menu-bottom-ticker">
-          <span>LAT 34°08'N • LON 74°48'E</span>
-          <span class="ticker-dot">•</span>
-          <span>CONVEX CLOUD BACKEND</span>
         </div>
       </div>
     </section>
@@ -319,8 +277,8 @@
               <img id="dossier-face" src="/assets/target1_mugshot.jpg" alt="Target Face Mugshot" />
             </div>
             <div class="photo-frame fullbody-frame">
-              <span class="photo-label">2D CDN SPRITE</span>
-              <img id="dossier-body" src="/assets/target1_body.jpg" alt="Target Full Body Sprite" />
+              <span class="photo-label">FULL-BODY PROFILE</span>
+              <img id="dossier-body" src="/assets/target1_body.jpg" alt="Target Full Body Recon" />
             </div>
           </div>
 
@@ -446,7 +404,7 @@
         <!-- Captured Recon Evidence -->
         <div class="evidence-strip">
           <div class="evidence-box">
-            <span class="evidence-label">CONFIRMED PHOTO EVIDENCE // CONVEX TELEMETRY</span>
+            <span class="evidence-label">CONFIRMED PHOTO EVIDENCE // SATELLITE RECON TELEMETRY</span>
             <img id="result-evidence-img" src="/assets/target1_mugshot.jpg" alt="Captured Target Recon" />
           </div>
         </div>
@@ -509,7 +467,7 @@
       <div class="archives-container">
         <div class="screen-title-bar">
           <h2>HOSTILE TARGET ARCHIVES</h2>
-          <p>CLASSIFIED THREAT INTELLIGENCE PROFILES & CDN SPRITES</p>
+          <p>CLASSIFIED THREAT INTELLIGENCE & TACTICAL PROFILES</p>
         </div>
 
         <div id="archives-list" class="archives-grid">
