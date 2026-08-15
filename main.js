@@ -334,7 +334,7 @@ async function init() {
   // 9. Result Screen Loops & Salute
   document.getElementById('btn-next-mission')?.addEventListener('click', () => {
     playSound('beep', 800);
-    state.memorialIndex = (state.memorialIndex + 1) % state.memorialsList.length;
+    pickRandomMemorial();
     if (state.gameMode === 'ROGUE') {
       state.rogueStreak = 0;
       start3DAR();
@@ -350,6 +350,7 @@ async function init() {
 
   document.getElementById('btn-replay')?.addEventListener('click', () => {
     playSound('beep', 800);
+    pickRandomMemorial();
     if (state.gameMode === 'ROGUE') {
       state.rogueStreak = 0;
       start3DAR();
@@ -509,6 +510,20 @@ function setupConvexSubscriptions() {
 // Helper: Filter remaining un-eliminated hostiles for Campaign Mode
 function getAvailableCampaignTargets() {
   return state.targetsList.filter(t => !state.eliminatedTargets.includes(t.codename));
+}
+
+// Helper: Pick a random braveheart memorial from the Hall of Heroes
+function pickRandomMemorial() {
+  if (!state.memorialsList || state.memorialsList.length === 0) return;
+  if (state.memorialsList.length === 1) {
+    state.memorialIndex = 0;
+    return;
+  }
+  let newIdx;
+  do {
+    newIdx = Math.floor(Math.random() * state.memorialsList.length);
+  } while (newIdx === state.memorialIndex && state.memorialsList.length > 1);
+  state.memorialIndex = newIdx;
 }
 
 // --- SCREEN LOADERS ---
@@ -1022,9 +1037,9 @@ function handleGunshotFire() {
           statusBadge.style.color = '#00ff88';
         }
 
-        // Advance to next terrorist in dataset
+        // Advance to next terrorist in dataset and pick random memorial
         state.targetIndex = (state.targetIndex + 1) % state.targetsList.length;
-        state.memorialIndex = (state.memorialIndex + 1) % state.memorialsList.length;
+        pickRandomMemorial();
 
         // Cinematic 1.2s delay before spawning next target
         setTimeout(() => {
@@ -1080,6 +1095,9 @@ async function handleMissionOutcome(isSuccess, reason) {
   clearInterval(state.missionTimerInterval);
   if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
   arEngine.stop();
+
+  // Randomly select a braveheart memorial tribute for this mission debrief
+  pickRandomMemorial();
 
   const currentTarget = state.targetsList[state.targetIndex] || {};
   const currentMemorial = state.memorialsList[state.memorialIndex] || {};
