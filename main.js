@@ -310,6 +310,9 @@ async function init() {
       saluteBtn.style.borderColor = '#00ff88';
     }
 
+    // Trigger Fullscreen Tricolour Delight Animation (Right to Left sweep)
+    triggerSaluteDelight(curMem?.name);
+
     if (curMem) {
       const res = await ConvexService.recordSalute(curMem.id, state.agentName);
       if (res && res.salutesCount) {
@@ -319,6 +322,79 @@ async function init() {
       }
     }
   });
+}
+
+// Fullscreen Tricolour National Pride Wave & Confetti Animation
+function triggerSaluteDelight(heroName) {
+  const overlay = document.getElementById('salute-delight-overlay');
+  const quoteElem = document.getElementById('delight-hero-tribute');
+  if (quoteElem && heroName) {
+    quoteElem.textContent = `“NATION SALUTES THE SUPREME SACRIFICE OF ${heroName.toUpperCase()}”`;
+  }
+
+  if (overlay) {
+    overlay.classList.remove('active');
+    void overlay.offsetWidth;
+    overlay.classList.add('active');
+
+    launchSaluteConfetti();
+
+    setTimeout(() => {
+      overlay.classList.remove('active');
+    }, 2300);
+  }
+}
+
+function launchSaluteConfetti() {
+  const canvas = document.getElementById('salute-confetti-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const colors = ['#ff9933', '#ffffff', '#138808', '#ffd700', '#000080'];
+  const particles = [];
+
+  for (let i = 0; i < 75; i++) {
+    particles.push({
+      x: window.innerWidth * (0.3 + Math.random() * 0.7),
+      y: window.innerHeight * (0.2 + Math.random() * 0.6),
+      vx: (Math.random() - 0.75) * 8,
+      vy: (Math.random() - 0.5) * 6,
+      size: 4 + Math.random() * 5,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      life: 1.0,
+      decay: 0.015 + Math.random() * 0.02
+    });
+  }
+
+  function renderConfetti() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let activeCount = 0;
+
+    particles.forEach(p => {
+      if (p.life > 0) {
+        activeCount++;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay;
+
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+
+    if (activeCount > 0) {
+      requestAnimationFrame(renderConfetti);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  renderConfetti();
 }
 
 // --- CONVEX REAL-TIME SUBSCRIPTIONS ---
