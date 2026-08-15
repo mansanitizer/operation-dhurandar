@@ -203,15 +203,29 @@
             <div class="nav-number">01</div>
             <div class="nav-body">
               <span class="nav-title">DEPLOY MISSION</span>
-              <span class="nav-sub">Acquire target in 3D / AR space</span>
+              <span class="nav-sub">Single target dossier & reconnaissance</span>
             </div>
             <div class="nav-action-indicator">
               <span class="indicator-arrow">▶</span>
             </div>
           </button>
 
-          <button id="btn-menu-archives" class="tactical-nav-item">
+          <button id="btn-menu-rogue" class="tactical-nav-item rogue-highlight">
             <div class="nav-number">02</div>
+            <div class="nav-body">
+              <div class="rogue-title-row">
+                <span class="nav-title">🔥 GO ROGUE</span>
+                <span class="rogue-badge">KILLSTREAK ARENA</span>
+              </div>
+              <span class="nav-sub">Endless combat • Eliminate all hostiles back-to-back</span>
+            </div>
+            <div class="nav-action-indicator">
+              <span class="indicator-arrow">⚡</span>
+            </div>
+          </button>
+
+          <button id="btn-menu-archives" class="tactical-nav-item">
+            <div class="nav-number">03</div>
             <div class="nav-body">
               <span class="nav-title">TARGET RECON ARCHIVES</span>
               <span class="nav-sub">CDN sprites, biometrics & UAPA intel</span>
@@ -222,7 +236,7 @@
           </button>
 
           <button id="btn-menu-heroes" class="tactical-nav-item memorial-highlight">
-            <div class="nav-number">03</div>
+            <div class="nav-number">04</div>
             <div class="nav-body">
               <span class="nav-title">HALL OF HEROES</span>
               <span class="nav-sub">In Memoriam • Real-time Tributes & Salutes</span>
@@ -233,7 +247,7 @@
           </button>
 
           <button id="btn-menu-leaderboard" class="tactical-nav-item leaderboard-highlight">
-            <div class="nav-number">04</div>
+            <div class="nav-number">05</div>
             <div class="nav-body">
               <span class="nav-title">TOP OPERATIVES LEADERBOARD</span>
               <span class="nav-sub">National combat rankings & clearance tiers</span>
@@ -244,7 +258,7 @@
           </button>
 
           <button id="btn-menu-logout" class="tactical-nav-item logout-item">
-            <div class="nav-number">05</div>
+            <div class="nav-number">06</div>
             <div class="nav-body">
               <span class="nav-title">LOCK TERMINAL</span>
               <span class="nav-sub">End classified session</span>
@@ -358,6 +372,10 @@
 
       <div class="hud-overlay">
         <div class="hud-header">
+          <div class="hud-badge streak-badge" id="hud-streak-badge" style="display: none;">
+            <span class="hud-label">ROGUE STREAK:</span>
+            <span id="hud-streak-count" class="timer-value" style="color: #ff9933;">🔥 0</span>
+          </div>
           <div class="hud-badge timer-badge">
             <span class="hud-label">TIME WINDOW:</span>
             <span id="mission-timer" class="timer-value">5.00s</span>

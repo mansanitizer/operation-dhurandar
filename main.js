@@ -20,6 +20,8 @@ const state = {
   memorialsList: fallbackMemorials,
 
   // Mission & AR State
+  gameMode: 'CAMPAIGN', // 'CAMPAIGN' | 'ROGUE'
+  rogueStreak: 0,
   arInitialized: false,
   missionTimerInterval: null,
   timeLeft: 5.0,
@@ -159,7 +161,15 @@ async function init() {
   // 5. Screen 2: Main Menu Navigation
   document.getElementById('btn-menu-campaign')?.addEventListener('click', () => {
     playSound('beep', 850);
+    state.gameMode = 'CAMPAIGN';
     loadBriefingScreen();
+  });
+
+  document.getElementById('btn-menu-rogue')?.addEventListener('click', async () => {
+    playSound('beep', 1200, 'sawtooth');
+    state.gameMode = 'ROGUE';
+    state.rogueStreak = 0;
+    await start3DAR();
   });
 
   document.getElementById('btn-menu-archives')?.addEventListener('click', () => {
@@ -254,12 +264,22 @@ async function init() {
     playSound('beep', 800);
     state.targetIndex = (state.targetIndex + 1) % state.targetsList.length;
     state.memorialIndex = (state.memorialIndex + 1) % state.memorialsList.length;
-    loadBriefingScreen();
+    if (state.gameMode === 'ROGUE') {
+      state.rogueStreak = 0;
+      start3DAR();
+    } else {
+      loadBriefingScreen();
+    }
   });
 
   document.getElementById('btn-replay')?.addEventListener('click', () => {
     playSound('beep', 800);
-    loadDossierScreen();
+    if (state.gameMode === 'ROGUE') {
+      state.rogueStreak = 0;
+      start3DAR();
+    } else {
+      loadDossierScreen();
+    }
   });
 
   document.getElementById('btn-salute')?.addEventListener('click', async () => {
@@ -449,6 +469,15 @@ async function start3DAR() {
   if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
 
   // Set HUD to Hunting Mode
+  const streakBadge = document.getElementById('hud-streak-badge');
+  const streakCount = document.getElementById('hud-streak-count');
+  if (state.gameMode === 'ROGUE') {
+    if (streakBadge) streakBadge.style.display = 'flex';
+    if (streakCount) streakCount.textContent = `🔥 ${state.rogueStreak}`;
+  } else {
+    if (streakBadge) streakBadge.style.display = 'none';
+  }
+
   const timerElem = document.getElementById('mission-timer');
   if (timerElem) {
     timerElem.textContent = 'STANDBY (HUNTING)';
@@ -470,8 +499,8 @@ async function start3DAR() {
 
   playSound('radarPing', 900);
 
-  // Dynamic Spawning Trigger: Hostile appears after 3.5 to 7.0 seconds of hunting
-  const huntDelay = 3500 + Math.random() * 3500;
+  // Dynamic Spawning Trigger: Hostile appears after hunting period
+  const huntDelay = state.gameMode === 'ROGUE' ? (1200 + Math.random() * 1500) : (3500 + Math.random() * 3500);
   state.spawnTimeout = setTimeout(() => {
     if (state.currentScreen === 'mission' && !state.timerStarted && !state.missionEnded) {
       state.missionState = 'NEARBY';
@@ -481,12 +510,59 @@ async function start3DAR() {
 
       playSound('radarPing', 1500);
       if (statusBadge) {
-        statusBadge.textContent = '⚠️ PROXIMITY ALERT: HOSTILE IN SECTOR — LOCATE NOW!';
+        statusBadge.textContent = `⚠️ PROXIMITY ALERT: ${currentTarget.codename} IN SECTOR — LOCATE NOW!`;
         statusBadge.style.borderColor = '#ff9933';
         statusBadge.style.color = '#ff9933';
       }
     }
   }, huntDelay);
+}
+
+// Spawns the next hostile in Go Rogue Endless Mode without ending the round
+function spawnNextRogueTarget() {
+  if (state.currentScreen !== 'mission' || state.missionEnded) return;
+
+  state.timerStarted = false;
+  state.timeLeft = 5.0;
+  arEngine.isSpawned = false;
+
+  const timerElem = document.getElementById('mission-timer');
+  if (timerElem) {
+    timerElem.textContent = 'STANDBY (HUNTING)';
+    timerElem.style.color = '#00f2fe';
+  }
+
+  const hpElem = document.getElementById('hud-target-hp');
+  if (hpElem) {
+    hpElem.textContent = '100% [○○○○○]';
+    hpElem.style.color = '#00ff88';
+  }
+
+  const statusBadge = document.getElementById('hud-status');
+  if (statusBadge) {
+    statusBadge.textContent = `⚡ NEXT TARGET INCOMING (HOSTILE #${state.rogueStreak + 1}) — SWEEP HORIZON!`;
+    statusBadge.style.borderColor = '#ff9933';
+    statusBadge.style.color = '#ff9933';
+  }
+
+  playSound('radarPing', 1200);
+
+  // Fast spawn in Rogue mode (1.0s to 2.0s)
+  const spawnDelay = 1000 + Math.random() * 1200;
+  state.spawnTimeout = setTimeout(() => {
+    if (state.currentScreen === 'mission' && !state.missionEnded) {
+      state.missionState = 'NEARBY';
+      const currentTarget = state.targetsList[state.targetIndex];
+      arEngine.spawnTarget(currentTarget.bodySprite);
+
+      playSound('radarPing', 1600);
+      if (statusBadge) {
+        statusBadge.textContent = `⚠️ HOSTILE SPOTTED: ${currentTarget.codename} — ENGAGE & FIRE!`;
+        statusBadge.style.borderColor = '#ff334b';
+        statusBadge.style.color = '#ff334b';
+      }
+    }
+  }, spawnDelay);
 }
 
 function start5SecondWindow() {
@@ -631,29 +707,64 @@ function handleGunshotFire() {
 
     // Check if target is completely neutralized (5 hits)
     if (result.isEliminated) {
-      state.missionEnded = true;
+      if (state.gameMode === 'ROGUE') {
+        // --- GO ROGUE CONTINUOUS MODE ---
+        state.rogueStreak++;
 
-      if (statusBadge) {
-        statusBadge.textContent = '☠️ HOSTILE NEUTRALIZED // MISSION ACCOMPLISHED';
-        statusBadge.style.borderColor = '#00ff88';
-        statusBadge.style.color = '#00ff88';
+        const streakCount = document.getElementById('hud-streak-count');
+        if (streakCount) streakCount.textContent = `🔥 ${state.rogueStreak}`;
+
+        if (statusBadge) {
+          statusBadge.textContent = `☠️ HOSTILE ELIMINATED! STREAK: 🔥 ${state.rogueStreak}`;
+          statusBadge.style.borderColor = '#00ff88';
+          statusBadge.style.color = '#00ff88';
+        }
+
+        if (hpElem) {
+          hpElem.textContent = '0% [●●●●●] ELIMINATED';
+          hpElem.style.color = '#ff334b';
+        }
+
+        playSound('tributeChime');
+        clearInterval(state.missionTimerInterval);
+        if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
+
+        // Advance to next terrorist in dataset
+        state.targetIndex = (state.targetIndex + 1) % state.targetsList.length;
+        state.memorialIndex = (state.memorialIndex + 1) % state.memorialsList.length;
+
+        // Spawn next target continuously after 800ms
+        setTimeout(() => {
+          if (state.currentScreen === 'mission' && !state.missionEnded) {
+            spawnNextRogueTarget();
+          }
+        }, 800);
+      } else {
+        // --- CAMPAIGN SINGLE MISSION MODE ---
+        state.missionEnded = true;
+
+        if (statusBadge) {
+          statusBadge.textContent = '☠️ HOSTILE NEUTRALIZED // MISSION ACCOMPLISHED';
+          statusBadge.style.borderColor = '#00ff88';
+          statusBadge.style.color = '#00ff88';
+        }
+
+        if (hpElem) {
+          hpElem.textContent = '0% [●●●●●] ELIMINATED';
+          hpElem.style.color = '#ff334b';
+        }
+
+        clearInterval(state.missionTimerInterval);
+        if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
+
+        try {
+          state.capturedEvidence = arEngine.captureEvidencePhoto();
+        } catch (e) {
+          state.capturedEvidence = null;
+        }
+
+        handleMissionOutcome(true, 'ELIMINATED');
       }
-
-      if (hpElem) {
-        hpElem.textContent = '0% [●●●●●] ELIMINATED';
-        hpElem.style.color = '#ff334b';
-      }
-
-      clearInterval(state.missionTimerInterval);
-      if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
-
-      try {
-        state.capturedEvidence = arEngine.captureEvidencePhoto();
-      } catch (e) {
-        state.capturedEvidence = null;
-      }
-
-      handleMissionOutcome(true, 'ELIMINATED');
     }
   } else {
     // Shot missed
@@ -688,7 +799,18 @@ async function handleMissionOutcome(isSuccess, reason) {
     evidenceImg.src = state.capturedEvidence || currentTarget.faceImage || '/assets/target1_mugshot.jpg';
   }
 
-  if (isSuccess) {
+  if (state.gameMode === 'ROGUE') {
+    if (resultHeader) resultHeader.className = state.rogueStreak > 0 ? 'result-header success' : 'result-header failed';
+    if (resultBadge) resultBadge.textContent = '🔥 ROGUE RUN TERMINATED';
+    if (resultTitle) resultTitle.textContent = `KILLSTREAK: 🔥 ${state.rogueStreak} HOSTILES ELIMINATED`;
+    if (resultSubtitle) {
+      resultSubtitle.textContent = state.rogueStreak > 0
+        ? `Operative eliminated ${state.rogueStreak} hostile targets in continuous combat before time expired.`
+        : 'Engagement window expired before first elimination.';
+    }
+    if (state.rogueStreak > 0) playSound('tributeChime');
+    else playSound('beep', 300, 'sawtooth');
+  } else if (isSuccess) {
     if (resultHeader) resultHeader.className = 'result-header success';
     if (resultBadge) resultBadge.textContent = 'MISSION ACCOMPLISHED // THREAT NEUTRALIZED';
     if (resultTitle) resultTitle.textContent = 'GOOD JOB AGENT — NEVER FORGET';
