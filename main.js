@@ -63,13 +63,18 @@ function showScreen(screenKey) {
     } catch (e) {}
   }
 
-  // Manage Main Menu Background Music (Play exclusively on Main Menu)
-  if (screenKey === 'menu') {
-    if (state.soundEnabled) {
-      Sound.playMenuMusic();
-    }
+  // Manage Contextual Music Playback (Auth & Main Menu)
+  if (!state.soundEnabled) {
+    Sound.stopAllMusic();
+    return;
+  }
+
+  if (screenKey === 'auth') {
+    Sound.playLoginMusic();
+  } else if (screenKey === 'menu') {
+    Sound.playMenuMusic();
   } else {
-    Sound.stopMenuMusic();
+    Sound.stopAllMusic();
   }
 }
 
@@ -95,6 +100,11 @@ function preloadGameAssets() {
 
 // --- INITIALIZE APPLICATION & CONVEX SYNC ---
 async function init() {
+  // Start Login Theme Music
+  if (state.soundEnabled) {
+    Sound.playLoginMusic();
+  }
+
   // 1. Fetch initial targets & memorials from Convex DB
   try {
     const dbTargets = await ConvexService.getTargets();
@@ -119,11 +129,13 @@ async function init() {
       btnSound.textContent = state.soundEnabled ? '🔊' : '🔇';
       if (state.soundEnabled) {
         playSound('beep', 900);
-        if (state.currentScreen === 'menu') {
+        if (state.currentScreen === 'auth') {
+          Sound.playLoginMusic();
+        } else if (state.currentScreen === 'menu') {
           Sound.playMenuMusic();
         }
       } else {
-        Sound.stopMenuMusic();
+        Sound.stopAllMusic();
       }
     });
   }
@@ -243,6 +255,7 @@ async function init() {
 
   // 7. Briefing & Dossier
   document.getElementById('btn-open-dossier')?.addEventListener('click', () => {
+    playSound('radioSquelch');
     playSound('beep', 850);
     loadDossierScreen();
   });
@@ -253,14 +266,20 @@ async function init() {
   });
 
   document.getElementById('btn-start-mission')?.addEventListener('click', async () => {
+    playSound('radioSquelch');
     playSound('beep', 1200);
     await start3DAR();
   });
 
-  // 8. Camera Switch & Firing Trigger
+  // 8. Camera Switch, Step Forward & Firing Trigger
   document.getElementById('btn-camera-toggle')?.addEventListener('click', async () => {
     playSound('beep', 1100);
     await arEngine.requestPermissions();
+  });
+
+  document.getElementById('btn-step-forward')?.addEventListener('click', () => {
+    playSound('footstep');
+    arEngine.advanceStep(0.75);
   });
 
   const btnFire = document.getElementById('btn-fire');
@@ -696,6 +715,9 @@ function start5SecondWindow() {
     const currentSec = Math.ceil(state.timeLeft);
     if (currentSec !== lastSecondInt && currentSec > 0) {
       playSound('countdownTick', currentSec);
+      if (currentSec <= 3) {
+        playSound('heartbeat', (4 - currentSec) * 0.5);
+      }
       lastSecondInt = currentSec;
     }
 
