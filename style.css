@@ -1296,12 +1296,41 @@ body, html {
   margin-bottom: 4px;
 }
 
-.evidence-box img {
-  width: 130px;
-  height: 85px;
+.evidence-photo-container {
+  position: relative;
+  display: inline-block;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 51, 75, 0.6);
+  box-shadow: 0 0 15px rgba(255, 51, 75, 0.3);
+}
+
+.evidence-photo-container img {
+  width: 140px;
+  height: 95px;
   object-fit: cover;
-  border: 1px solid var(--accent-cyan);
-  border-radius: 2px;
+  display: block;
+  filter: grayscale(0.3) contrast(1.15);
+}
+
+.stamp-neutralized {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  border: 2.5px solid #ff334b;
+  color: #ff334b;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  padding: 3px 10px;
+  background: rgba(0, 0, 0, 0.75);
+  box-shadow: 0 0 12px rgba(255, 51, 75, 0.8), inset 0 0 6px rgba(255, 51, 75, 0.4);
+  text-shadow: 0 0 6px #ff334b;
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 /* IN MEMORIAM SECTION */

@@ -897,9 +897,24 @@ async function handleMissionOutcome(isSuccess, reason) {
   const resultTitle = document.getElementById('result-title');
   const resultSubtitle = document.getElementById('result-subtitle');
   const evidenceImg = document.getElementById('result-evidence-img');
+  const stampNeutralized = document.getElementById('stamp-neutralized');
 
   if (evidenceImg) {
     evidenceImg.src = state.capturedEvidence || currentTarget.faceImage || '/assets/target1_mugshot.jpg';
+  }
+
+  if (stampNeutralized) {
+    if (isSuccess || (state.gameMode === 'ROGUE' && state.rogueStreak > 0)) {
+      stampNeutralized.textContent = 'NEUTRALIZED';
+      stampNeutralized.style.display = 'block';
+      stampNeutralized.style.borderColor = '#ff334b';
+      stampNeutralized.style.color = '#ff334b';
+    } else {
+      stampNeutralized.textContent = 'EVADED';
+      stampNeutralized.style.display = 'block';
+      stampNeutralized.style.borderColor = '#ff9933';
+      stampNeutralized.style.color = '#ff9933';
+    }
   }
 
   if (state.gameMode === 'ROGUE') {
