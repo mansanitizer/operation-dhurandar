@@ -334,51 +334,81 @@
       </div>
 
       <div class="hud-overlay">
-        <div class="hud-header">
-          <div class="hud-badge streak-badge" id="hud-streak-badge" style="display: none;">
-            <span class="hud-label">ROGUE STREAK:</span>
-            <span id="hud-streak-count" class="timer-value" style="color: #ff9933;">🔥 0</span>
+        <!-- MODERN UNIFIED TOP TACTICAL BAR -->
+        <div class="hud-top-bar">
+          <div class="hud-col-left">
+            <div class="hud-streak-pill" id="hud-streak-badge" style="display: none;">
+              <span class="pill-fire">🔥</span>
+              <span id="hud-streak-count" class="pill-val">0</span>
+            </div>
+            <div class="hud-hp-pill" id="hud-hp-badge">
+              <span class="hp-label">HP</span>
+              <div class="hp-pips-container" id="hp-segments">
+                <span class="hp-pip active"></span>
+                <span class="hp-pip active"></span>
+                <span class="hp-pip active"></span>
+                <span class="hp-pip active"></span>
+                <span class="hp-pip active"></span>
+              </div>
+            </div>
           </div>
-          <div class="hud-badge timer-badge">
-            <span class="hud-label">TIME WINDOW:</span>
-            <span id="mission-timer" class="timer-value">4.00s</span>
+
+          <div class="hud-col-center">
+            <div class="hud-mission-window">
+              <div class="hud-timer-row">
+                <span class="timer-dot"></span>
+                <span id="mission-timer" class="hud-timer-digits">STANDBY</span>
+              </div>
+              <span id="hud-status" class="hud-status-line">SWEEPING HORIZON</span>
+            </div>
           </div>
-          <div class="hud-badge hp-badge" id="hud-hp-badge">
-            <span class="hud-label">HOSTILE HP:</span>
-            <span id="hud-target-hp" class="timer-value" style="color: #00ff88; font-size: 13px;">100% [○○○○○]</span>
-          </div>
-          <div class="hud-badge status-badge" id="hud-status">
-            SCANNING 3D HORIZON...
+
+          <div class="hud-col-right">
+            <div class="hud-radar-pill">
+              <span class="radar-bearing" id="radar-azimuth">0°</span>
+              <span class="radar-range" id="radar-distance">3.8M</span>
+            </div>
           </div>
         </div>
 
-        <div class="reticle-container">
-          <div class="reticle-circle"></div>
-          <div class="reticle-crosshair"></div>
-          <div class="reticle-corner tl"></div>
-          <div class="reticle-corner tr"></div>
-          <div class="reticle-corner bl"></div>
-          <div class="reticle-corner br"></div>
-          <div id="lockon-indicator" class="lockon-indicator">⚡ TARGET IN CROSSHAIRS // TAP TO FIRE!</div>
-        </div>
-
-        <div class="hud-bottom-info">
-          <div class="bearing-radar">
-            <span>AZIMUTH: <b id="radar-azimuth">0°</b></span>
-            <span id="radar-distance">RANGE: SCANNING</span>
+        <!-- MODERN RETICLE -->
+        <div class="reticle-container" id="reticle-container">
+          <div class="reticle-outer-ring"></div>
+          <div class="reticle-bracket tl"></div>
+          <div class="reticle-bracket tr"></div>
+          <div class="reticle-bracket bl"></div>
+          <div class="reticle-bracket br"></div>
+          <div class="reticle-crosshair-lines">
+            <span class="ch-line ch-top"></span>
+            <span class="ch-line ch-bottom"></span>
+            <span class="ch-line ch-left"></span>
+            <span class="ch-line ch-right"></span>
+            <span class="ch-center-dot"></span>
           </div>
-          <p class="mobile-hint">Rotate phone to align crosshairs • Tap screen or FIRE button repeatedly to eliminate</p>
+          <div id="lockon-indicator" class="lockon-indicator">
+            <span class="lock-pulse-icon">⚡</span> TARGET LOCKED
+          </div>
         </div>
 
-        <div class="hud-controls">
-          <button id="btn-camera-toggle" class="camera-switch-btn" title="Toggle Live AR Camera">📷 AR Cam</button>
-          <button id="btn-fire" class="fire-btn" aria-label="Fire Gun">
-            <div class="fire-inner">
-              <span class="fire-icon">🎯</span>
-              <span class="fire-text">FIRE (5 SHOTS)</span>
+        <!-- MODERN BOTTOM CONTROLS DOCK -->
+        <div class="hud-bottom-dock">
+          <button id="btn-camera-toggle" class="dock-btn cam-toggle-btn active" title="Toggle Camera">
+            <span class="cam-icon">📹</span>
+            <span class="dock-btn-text" id="cam-toggle-label">CAM ON</span>
+          </button>
+
+          <button id="btn-fire" class="dock-trigger-btn" aria-label="Fire Gun">
+            <div class="trigger-ring"></div>
+            <div class="trigger-core">
+              <span class="trigger-icon">🎯</span>
+              <span class="trigger-text">FIRE</span>
             </div>
           </button>
-          <button id="btn-abort-mission" class="camera-switch-btn abort-btn">✕ Abort</button>
+
+          <button id="btn-abort-mission" class="dock-btn abort-toggle-btn" title="Abort Mission">
+            <span class="abort-icon">✕</span>
+            <span class="dock-btn-text">ABORT</span>
+          </button>
         </div>
 
         <!-- CINEMATIC KILL OVERLAY BANNER -->

@@ -99,9 +99,30 @@ class AREngine {
       }
     } catch (e) {
       console.warn('[AR] Camera access:', e);
+      this.isCameraActive = false;
     }
 
     return { camera: cameraGranted, gyro: gyroGranted };
+  }
+
+  // Toggle Camera stream ON / OFF
+  async toggleCamera() {
+    if (this.isCameraActive) {
+      if (this.cameraStream) {
+        try {
+          this.cameraStream.getTracks().forEach(track => track.stop());
+        } catch (e) {}
+        this.cameraStream = null;
+      }
+      if (this.videoElement) {
+        this.videoElement.srcObject = null;
+      }
+      this.isCameraActive = false;
+      return false;
+    } else {
+      const res = await this.requestPermissions();
+      return this.isCameraActive;
+    }
   }
 
   start(container, videoElement, onTelemetryUpdate) {
@@ -419,6 +440,37 @@ class AREngine {
     const h = this.canvas.height;
 
     ctx.clearRect(0, 0, w, h);
+
+    // If Camera is OFF, draw tactical night-vision / radar simulation backdrop
+    if (!this.isCameraActive) {
+      ctx.fillStyle = '#070c0e';
+      ctx.fillRect(0, 0, w, h);
+
+      // Subtle tactical grid
+      ctx.strokeStyle = 'rgba(0, 242, 254, 0.05)';
+      ctx.lineWidth = 1;
+      const gridSize = 45 * dpr;
+      for (let x = 0; x < w; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y < h; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // Center radar rings
+      ctx.strokeStyle = 'rgba(0, 242, 254, 0.08)';
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, 100 * dpr, 0, Math.PI * 2);
+      ctx.arc(w / 2, h / 2, 200 * dpr, 0, Math.PI * 2);
+      ctx.arc(w / 2, h / 2, 300 * dpr, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     // If target has not spawned yet, only emit sweep telemetry
     if (!this.isSpawned) {

@@ -303,11 +303,21 @@ async function init() {
     await start3DAR();
   });
 
-  // 8. Camera Switch, Step Forward & Firing Trigger
-  document.getElementById('btn-camera-toggle')?.addEventListener('click', async () => {
-    playSound('beep', 1100);
-    await arEngine.requestPermissions();
-  });
+  // 8. Camera Toggle, Step Forward & Firing Trigger
+  const btnCameraToggle = document.getElementById('btn-camera-toggle');
+  const camToggleLabel = document.getElementById('cam-toggle-label');
+  if (btnCameraToggle) {
+    btnCameraToggle.addEventListener('click', async () => {
+      playSound('beep', 1100);
+      const isNowActive = await arEngine.toggleCamera();
+      btnCameraToggle.classList.toggle('active', isNowActive);
+      if (camToggleLabel) {
+        camToggleLabel.textContent = isNowActive ? 'CAM ON' : 'CAM OFF';
+      }
+      const camIcon = btnCameraToggle.querySelector('.cam-icon');
+      if (camIcon) camIcon.textContent = isNowActive ? '📹' : '📷';
+    });
+  }
 
   document.getElementById('btn-step-forward')?.addEventListener('click', () => {
     playSound('footstep');
@@ -326,7 +336,7 @@ async function init() {
   // Also allow tapping on the 3D viewport to fire
   document.getElementById('spatial-viewport')?.addEventListener('pointerdown', (e) => {
     // Only fire if clicking outside controls
-    if (!e.target.closest('.hud-controls') && state.currentScreen === 'mission') {
+    if (!e.target.closest('.hud-bottom-dock') && state.currentScreen === 'mission') {
       handleGunshotFire();
     }
   });
@@ -737,21 +747,34 @@ async function start3DAR() {
 
   const timerElem = document.getElementById('mission-timer');
   if (timerElem) {
-    timerElem.textContent = 'STANDBY (HUNTING)';
-    timerElem.style.color = '#00f2fe';
+    timerElem.textContent = 'STANDBY';
+    timerElem.classList.remove('engaged');
   }
 
-  const hpElem = document.getElementById('hud-target-hp');
-  if (hpElem) {
-    hpElem.textContent = '100% [○○○○○]';
-    hpElem.style.color = '#00ff88';
+  const hpSegments = document.getElementById('hp-segments');
+  if (hpSegments) {
+    hpSegments.innerHTML = `
+      <span class="hp-pip active"></span>
+      <span class="hp-pip active"></span>
+      <span class="hp-pip active"></span>
+      <span class="hp-pip active"></span>
+      <span class="hp-pip active"></span>
+    `;
   }
 
   const statusBadge = document.getElementById('hud-status');
   if (statusBadge) {
-    statusBadge.textContent = '🔍 HUNTING MODE: MOVE & SWEEP 360° ENVIRONMENT...';
-    statusBadge.style.borderColor = 'rgba(0, 242, 254, 0.4)';
+    statusBadge.textContent = 'SWEEPING HORIZON';
     statusBadge.style.color = '#00f2fe';
+  }
+
+  const btnCameraToggle = document.getElementById('btn-camera-toggle');
+  const camToggleLabel = document.getElementById('cam-toggle-label');
+  if (btnCameraToggle) {
+    btnCameraToggle.classList.toggle('active', arEngine.isCameraActive);
+    if (camToggleLabel) camToggleLabel.textContent = arEngine.isCameraActive ? 'CAM ON' : 'CAM OFF';
+    const camIcon = btnCameraToggle.querySelector('.cam-icon');
+    if (camIcon) camIcon.textContent = arEngine.isCameraActive ? '📹' : '📷';
   }
 
   playSound('radarPing', 900);
@@ -768,8 +791,7 @@ async function start3DAR() {
 
       playSound('radarPing', 1500);
       if (statusBadge) {
-        statusBadge.textContent = `⚠️ PROXIMITY ALERT: ${currentTarget.codename} IN SECTOR — LOCATE NOW!`;
-        statusBadge.style.borderColor = '#ff9933';
+        statusBadge.textContent = `TARGET DETECTED`;
         statusBadge.style.color = '#ff9933';
       }
     }
@@ -786,20 +808,24 @@ function spawnNextRogueTarget() {
 
   const timerElem = document.getElementById('mission-timer');
   if (timerElem) {
-    timerElem.textContent = 'STANDBY (HUNTING)';
-    timerElem.style.color = '#00f2fe';
+    timerElem.textContent = 'STANDBY';
+    timerElem.classList.remove('engaged');
   }
 
-  const hpElem = document.getElementById('hud-target-hp');
-  if (hpElem) {
-    hpElem.textContent = '100% [○○○○○]';
-    hpElem.style.color = '#00ff88';
+  const hpSegments = document.getElementById('hp-segments');
+  if (hpSegments) {
+    hpSegments.innerHTML = `
+      <span class="hp-pip active"></span>
+      <span class="hp-pip active"></span>
+      <span class="hp-pip active"></span>
+      <span class="hp-pip active"></span>
+      <span class="hp-pip active"></span>
+    `;
   }
 
   const statusBadge = document.getElementById('hud-status');
   if (statusBadge) {
-    statusBadge.textContent = `⚡ NEXT TARGET INCOMING (HOSTILE #${state.rogueStreak + 1}) — SWEEP HORIZON!`;
-    statusBadge.style.borderColor = '#ff9933';
+    statusBadge.textContent = `HOSTILE #${state.rogueStreak + 1} INCOMING`;
     statusBadge.style.color = '#ff9933';
   }
 
@@ -816,8 +842,7 @@ function spawnNextRogueTarget() {
 
       playSound('radarPing', 1600);
       if (statusBadge) {
-        statusBadge.textContent = `⚠️ HOSTILE SPOTTED: ${currentTarget.codename} — ENGAGE & FIRE!`;
-        statusBadge.style.borderColor = '#ff334b';
+        statusBadge.textContent = `TARGET IN SECTOR`;
         statusBadge.style.color = '#ff334b';
       }
     }
@@ -832,12 +857,14 @@ function start4SecondWindow() {
   state.timeLeft = 4.0;
 
   const timerElem = document.getElementById('mission-timer');
-  if (timerElem) timerElem.style.color = '#ff334b';
+  if (timerElem) {
+    timerElem.classList.add('engaged');
+    timerElem.textContent = '4.00s';
+  }
 
   const statusBadge = document.getElementById('hud-status');
   if (statusBadge) {
-    statusBadge.textContent = '🚨 TARGET IN SIGHT — 4s ENGAGEMENT WINDOW!';
-    statusBadge.style.borderColor = '#ff334b';
+    statusBadge.textContent = 'ENGAGING TARGET';
     statusBadge.style.color = '#ff334b';
   }
 
@@ -922,18 +949,23 @@ function handleARTelemetry(data) {
 
   const radarDist = document.getElementById('radar-distance');
   if (radarDist) {
-    radarDist.textContent = distance > 0 ? `RANGE: ${distance}m` : 'RANGE: SCANNING';
+    radarDist.textContent = distance > 0 ? `${distance}M` : 'SCANNING';
   }
 
-  // Update live HP readout in HUD when target is actively spawned
-  const hpElem = document.getElementById('hud-target-hp');
-  if (hpElem && data.isSpawned) {
-    const hitPips = '●'.repeat(hits) + '○'.repeat(Math.max(0, 5 - hits));
-    hpElem.textContent = `${health}% [${hitPips}]`;
-    hpElem.style.color = health > 40 ? '#00ff88' : '#ff334b';
+  // Update live HP pips in HUD
+  const hpSegments = document.getElementById('hp-segments');
+  if (hpSegments && data.isSpawned) {
+    const remainingHits = Math.max(0, 5 - hits);
+    const pips = hpSegments.querySelectorAll('.hp-pip');
+    pips.forEach((pip, idx) => {
+      pip.classList.toggle('active', idx < remainingHits);
+      pip.classList.toggle('danger', remainingHits <= 2);
+    });
   }
 
   const lockonIndicator = document.getElementById('lockon-indicator');
+  const reticle = document.getElementById('reticle-container');
+  const fireBtn = document.getElementById('btn-fire');
   const statusBadge = document.getElementById('hud-status');
 
   if (isInViewfinder && !state.timerStarted && state.currentScreen === 'mission') {
@@ -942,16 +974,18 @@ function handleARTelemetry(data) {
 
   if (isLocked) {
     if (lockonIndicator) lockonIndicator.classList.add('active');
+    if (reticle) reticle.classList.add('locked');
+    if (fireBtn) fireBtn.classList.add('locked-on');
     if (statusBadge) {
-      statusBadge.textContent = `⚡ LOCKED [HITBOX: ${data.hitboxScale || 100}%] // TAP TO FIRE!`;
-      statusBadge.style.borderColor = '#00ff88';
+      statusBadge.textContent = `TARGET LOCKED`;
       statusBadge.style.color = '#00ff88';
     }
   } else {
     if (lockonIndicator) lockonIndicator.classList.remove('active');
+    if (reticle) reticle.classList.remove('locked');
+    if (fireBtn) fireBtn.classList.remove('locked-on');
     if (state.timerStarted && statusBadge) {
-      statusBadge.textContent = `🚨 IN SIGHT [HITBOX: ${data.hitboxScale || 100}%] — ALIGN CROSSHAIR!`;
-      statusBadge.style.borderColor = '#ff334b';
+      statusBadge.textContent = `ENGAGING TARGET`;
       statusBadge.style.color = '#ff334b';
     }
   }
