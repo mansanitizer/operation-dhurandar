@@ -257,10 +257,14 @@ async function init() {
     await start3DAR();
   });
 
-  // 8. Camera Switch & Firing Trigger
+  // 8. Camera Switch, Step Forward & Firing Trigger
   document.getElementById('btn-camera-toggle')?.addEventListener('click', async () => {
     playSound('beep', 1100);
     await arEngine.requestPermissions();
+  });
+
+  document.getElementById('btn-step-forward')?.addEventListener('click', () => {
+    arEngine.advanceStep(0.75);
   });
 
   const btnFire = document.getElementById('btn-fire');
@@ -712,7 +716,7 @@ function start5SecondWindow() {
 function handleARTelemetry(data) {
   if (state.missionEnded || state.currentScreen !== 'mission') return;
 
-  const { isInViewfinder, isLocked, distance, azimuth, directionHint, health = 100, hits = 0 } = data;
+  const { isInViewfinder, isLocked, distance, isBreached, isCovered, coverName, occlusionPercent = 0, azimuth, directionHint, health = 100, hits = 0 } = data;
   state.isTargetLocked = isLocked;
 
   const radarAzimuth = document.getElementById('radar-azimuth');
@@ -723,7 +727,25 @@ function handleARTelemetry(data) {
 
   const radarDist = document.getElementById('radar-distance');
   if (radarDist) {
-    radarDist.textContent = distance > 0 ? `RANGE: ${distance}m` : 'RANGE: SCANNING';
+    radarDist.textContent = distance > 0 ? `RANGE: ${distance.toFixed(1)}m` : 'RANGE: SCANNING';
+  }
+
+  // Update distance badge in HUD header
+  const distVal = document.getElementById('hud-distance-val');
+  if (distVal && data.isSpawned) {
+    distVal.textContent = `${distance.toFixed(1)}m`;
+    distVal.style.color = isBreached ? '#00ff88' : '#00f2fe';
+  }
+
+  // Update cover warning banner
+  const coverWarning = document.getElementById('hud-cover-warning');
+  if (coverWarning) {
+    if (isCovered && data.isSpawned) {
+      coverWarning.style.display = 'block';
+      coverWarning.textContent = `🛡️ IN COVER [${coverName || 'FURNITURE'}] (${occlusionPercent}%) — FLANK!`;
+    } else {
+      coverWarning.style.display = 'none';
+    }
   }
 
   // Update live HP readout in HUD when target is actively spawned
@@ -741,7 +763,19 @@ function handleARTelemetry(data) {
     start5SecondWindow();
   }
 
-  if (isLocked) {
+  if (isCovered && data.isSpawned) {
+    if (statusBadge) {
+      statusBadge.textContent = `🛡️ HOSTILE BEHIND [${coverName || 'COVER'}] — FLANK TO GET DIRECT LINE OF SIGHT!`;
+      statusBadge.style.borderColor = '#e5a93c';
+      statusBadge.style.color = '#e5a93c';
+    }
+  } else if (!isBreached && data.isSpawned) {
+    if (statusBadge) {
+      statusBadge.textContent = `⚠️ DISTANCE: ${distance.toFixed(1)}m — STEP FORWARD (< 3.5m) TO BREACH!`;
+      statusBadge.style.borderColor = '#00f2fe';
+      statusBadge.style.color = '#00f2fe';
+    }
+  } else if (isLocked) {
     if (lockonIndicator) lockonIndicator.classList.add('active');
     if (statusBadge) {
       statusBadge.textContent = '⚡ LOCKED ON HOSTILE // TAP TO FIRE!';
@@ -785,6 +819,25 @@ function handleGunshotFire() {
 
   const statusBadge = document.getElementById('hud-status');
   const hpElem = document.getElementById('hud-target-hp');
+
+  // Handle spatial out-of-range or obstacle cover cases
+  if (result.reason === 'OUT_OF_RANGE') {
+    if (statusBadge) {
+      statusBadge.textContent = `⚠️ OUT OF RANGE (${result.distance.toFixed(1)}m)! STEP FORWARD (< 3.5m)`;
+      statusBadge.style.borderColor = '#00f2fe';
+      statusBadge.style.color = '#00f2fe';
+    }
+    return;
+  }
+
+  if (result.reason === 'BLOCKED_BY_COVER') {
+    if (statusBadge) {
+      statusBadge.textContent = `🛡️ SHOT BLOCKED BY [${result.coverName}] (${result.occlusionPercent}%)! FLANK TARGET`;
+      statusBadge.style.borderColor = '#e5a93c';
+      statusBadge.style.color = '#e5a93c';
+    }
+    return;
+  }
 
   if (result.hit) {
     // Bullet impact sound confirmation

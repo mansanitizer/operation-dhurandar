@@ -339,6 +339,10 @@
             <span class="hud-label">ROGUE STREAK:</span>
             <span id="hud-streak-count" class="timer-value" style="color: #ff9933;">🔥 0</span>
           </div>
+          <div class="hud-badge distance-badge" id="hud-distance-badge">
+            <span class="hud-label">DISTANCE:</span>
+            <span id="hud-distance-val" class="timer-value" style="color: #00f2fe;">8.2m</span>
+          </div>
           <div class="hud-badge timer-badge">
             <span class="hud-label">TIME WINDOW:</span>
             <span id="mission-timer" class="timer-value">5.00s</span>
@@ -360,17 +364,19 @@
           <div class="reticle-corner bl"></div>
           <div class="reticle-corner br"></div>
           <div id="lockon-indicator" class="lockon-indicator">⚡ TARGET IN CROSSHAIRS // TAP TO FIRE!</div>
+          <div id="hud-cover-warning" class="hud-cover-warning" style="display: none;">🛡️ HOSTILE IN COVER [SOFA] — FLANK TO EXPOSE</div>
         </div>
 
         <div class="hud-bottom-info">
           <div class="bearing-radar">
             <span>AZIMUTH: <b id="radar-azimuth">0°</b></span>
-            <span id="radar-distance">RANGE: SCANNING</span>
+            <span id="radar-distance">RANGE: 8.2m</span>
           </div>
-          <p class="mobile-hint">Rotate phone to align crosshairs • Tap screen or FIRE button repeatedly to eliminate</p>
+          <p class="mobile-hint">👟 Walk forward / press W to breach (&lt; 3.5m) • 🛡️ Flank furniture cover • Tap FIRE to eliminate</p>
         </div>
 
         <div class="hud-controls">
+          <button id="btn-step-forward" class="camera-switch-btn step-btn" title="Physical Step Forward">👟 Step (+0.75m)</button>
           <button id="btn-camera-toggle" class="camera-switch-btn" title="Toggle Live AR Camera">📷 AR Cam</button>
           <button id="btn-fire" class="fire-btn" aria-label="Fire Gun">
             <div class="fire-inner">

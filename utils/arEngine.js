@@ -1,4 +1,6 @@
-// Self-contained, High-Performance 3D AR Engine with ZERO external CDN dependencies
+// Self-contained, High-Performance 3D AR Engine with Spatial Distance Tracking & AI Furniture Occlusion
+import { Sound } from './sound.js';
+import { objectDetector } from './objectDetector.js';
 
 class AREngine {
   constructor() {
@@ -22,26 +24,48 @@ class AREngine {
     this.isDragging = false;
     this.dragStart = { x: 0, y: 0 };
 
-    // Target in 3D Space (Spherical coordinates)
+    // Target in 3D Space (Spherical coordinates + Metric Distance)
     this.target = {
       azimuth: Math.random() * Math.PI * 2, // 0 to 360 deg
       altitude: (Math.random() - 0.5) * 0.4, // -11 to +11 deg
-      distance: 4.5, // meters
+      distance: 8.2, // Initial spawn distance in meters
+      spawnDistance: 8.2,
+      effectiveRange: 3.5, // Effective engagement threshold in meters
       image: null,
-      isLoaded: false
+      isLoaded: false,
+      isCovered: false,
+      coverName: null,
+      occlusionPercent: 0,
+      health: 100,
+      currentHits: 0,
+      maxHits: 5,
+      hitFlashUntil: 0,
+      sparks: []
     };
 
+    // Step Detection / Pedometer Dead-Reckoning
+    this.lastStepTime = 0;
+    this.stepDebounceMs = 380;
+    this.lastAccelMagnitude = 9.8;
+    this.stepsTaken = 0;
+    this.stepListenersBound = false;
+
     // Telemetry & Lock-on
+    this.isSpawned = false;
+    this.isInViewfinder = false;
     this.isLocked = false;
     this.onTelemetryUpdate = null;
+
+    // Obstacles
+    this.obstacles = [];
   }
 
-  // Request Mobile Permissions (Camera & iOS Gyro)
+  // Request Mobile Permissions (Camera, Gyro, Accelerometer)
   async requestPermissions() {
     let gyroGranted = false;
     let cameraGranted = false;
 
-    // 1. Gyroscope Permission FIRST (MUST be synchronous in user gesture context for iOS Safari!)
+    // 1. Gyroscope & Motion Permission FIRST (iOS Safari gesture requirement)
     try {
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         const res = await DeviceOrientationEvent.requestPermission();
@@ -55,14 +79,22 @@ class AREngine {
         this.gyroAvailable = true;
         gyroGranted = true;
       }
+
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        await DeviceMotionEvent.requestPermission().catch(() => {});
+      }
     } catch (e) {
-      console.warn('[AR] Gyro permission request:', e);
-      this.hasGyroPermission = true; // Fallback to event listening
+      console.warn('[AR] Gyro/Motion permission request:', e);
+      this.hasGyroPermission = true;
     }
 
     this.bindSensors();
+    this.bindStepDetection();
 
-    // 2. Camera Permission SECOND
+    // Initialize AI Object Detector in background
+    objectDetector.init().catch(e => console.warn('[AR] Object detector init:', e));
+
+    // 2. Camera Permission
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -99,16 +131,22 @@ class AREngine {
       this.init(this.container, this.videoElement, this.onTelemetryUpdate);
     }
 
-    // Completely reset target & state so previous sprite is purged
+    // Reset Target & State
     this.isSpawned = false;
     this.isInViewfinder = false;
     this.isLocked = false;
+    this.stepsTaken = 0;
     this.target = {
       azimuth: 0,
       altitude: 0,
-      distance: 3.8,
+      distance: 8.2,
+      spawnDistance: 8.2,
+      effectiveRange: 3.5,
       isLoaded: false,
       image: null,
+      isCovered: false,
+      coverName: null,
+      occlusionPercent: 0,
       health: 100,
       currentHits: 0,
       maxHits: 5,
@@ -130,7 +168,6 @@ class AREngine {
     this.videoElement = videoElement;
     this.onTelemetryUpdate = onTelemetryUpdate;
 
-    // Create 3D Projection Canvas
     let existingCanvas = container.querySelector('.ar-three-canvas');
     if (!existingCanvas) {
       this.canvas = document.createElement('canvas');
@@ -146,6 +183,8 @@ class AREngine {
     window.addEventListener('resize', this.resize.bind(this));
     this.bindTouchControls();
     this.bindSensors();
+    this.bindStepDetection();
+
     if (!this.animationFrameId) {
       this.startLoop();
     }
@@ -192,6 +231,68 @@ class AREngine {
 
     window.addEventListener('deviceorientation', handleOrientation, true);
     window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+  }
+
+  // Real-world Step & Pedometer Detection via devicemotion
+  bindStepDetection() {
+    if (this.stepListenersBound) return;
+    this.stepListenersBound = true;
+
+    const handleMotion = (e) => {
+      if (!this.isSpawned) return;
+      const acc = e.accelerationIncludingGravity || e.acceleration;
+      if (!acc) return;
+
+      const ax = acc.x || 0;
+      const ay = acc.y || 0;
+      const az = acc.z || 0;
+      const magnitude = Math.sqrt(ax * ax + ay * ay + az * az);
+
+      const delta = Math.abs(magnitude - this.lastAccelMagnitude);
+      this.lastAccelMagnitude = magnitude;
+
+      const now = performance.now();
+      // Peak threshold for a physical forward footstep gait
+      if (delta > 2.4 && now - this.lastStepTime > this.stepDebounceMs) {
+        this.lastStepTime = now;
+        this.advanceStep(0.75); // ~0.75m per physical step
+      }
+    };
+
+    window.addEventListener('devicemotion', handleMotion, true);
+
+    // Keyboard controls for desktop testing (W / Up to advance, S / Down to step back)
+    window.addEventListener('keydown', (e) => {
+      if (!this.isSpawned) return;
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') {
+        this.advanceStep(0.75);
+      } else if (e.code === 'KeyS' || e.code === 'ArrowDown') {
+        this.retreatStep(0.75);
+      }
+    });
+  }
+
+  // Advance player closer to target in 3D space
+  advanceStep(strideMeters = 0.75) {
+    if (!this.isSpawned) return;
+    const oldDist = this.target.distance;
+    this.target.distance = Math.max(1.6, Math.round((this.target.distance - strideMeters) * 10) / 10);
+    this.stepsTaken++;
+
+    // Play tactile boot step
+    Sound.footstep();
+
+    // When entering effective breach range (< 3.5m)
+    if (oldDist > this.target.effectiveRange && this.target.distance <= this.target.effectiveRange) {
+      Sound.rangeAcquired();
+    }
+  }
+
+  // Step back / retreat
+  retreatStep(strideMeters = 0.75) {
+    if (!this.isSpawned) return;
+    this.target.distance = Math.min(10.0, Math.round((this.target.distance + strideMeters) * 10) / 10);
+    Sound.footstep();
   }
 
   bindTouchControls() {
@@ -246,23 +347,29 @@ class AREngine {
     return { heading, pitch };
   }
 
-  // Spawn Target Sprite Fixed in 3D Space (Gated by Spawn Trigger)
-  spawnTarget(imageUrl) {
+  // Spawn Target Sprite at distance in 3D Space
+  spawnTarget(imageUrl, initialDistance = 8.2) {
     const current = this.getCurrentViewOrientation();
     
-    // Spawn target offset 65 to 110 degrees away from current gaze (requires player to turn & hunt!)
+    // Spawn offset 65° to 115° away to require turning and searching
     const sign = Math.random() > 0.5 ? 1 : -1;
-    const randomAngleOffset = sign * (Math.PI / 2.8 + Math.random() * (Math.PI / 3.5)); // 65° to 115°
+    const randomAngleOffset = sign * (Math.PI / 2.8 + Math.random() * (Math.PI / 3.5));
     
     this.target.azimuth = (current.heading + randomAngleOffset + Math.PI * 2) % (Math.PI * 2);
     this.target.altitude = current.pitch;
-    this.target.distance = 3.8;
+    this.target.distance = initialDistance;
+    this.target.spawnDistance = initialDistance;
+    this.target.effectiveRange = 3.5;
     this.target.isLoaded = false;
+    this.target.isCovered = false;
+    this.target.coverName = null;
+    this.target.occlusionPercent = 0;
     this.target.health = 100;
     this.target.currentHits = 0;
     this.target.maxHits = 5;
     this.target.hitFlashUntil = 0;
     this.target.sparks = [];
+    this.stepsTaken = 0;
     this.isSpawned = true;
 
     const img = new Image();
@@ -277,14 +384,35 @@ class AREngine {
     };
   }
 
-  // Register Gunshot on Target
+  // Register Gunshot on Target with Distance & Cover Occlusion checks
   shoot() {
     if (!this.isSpawned) return { hit: false, reason: 'NO_TARGET' };
     if (this.target.health !== undefined && this.target.health <= 0) {
       return { hit: true, isEliminated: true, remainingHp: 0, hits: 5, maxHits: 5 };
     }
 
-    // Check if target is locked or in crosshair zone
+    // 1. Check Distance Requirement (Must breach into effective combat range)
+    if (this.target.distance > this.target.effectiveRange) {
+      return {
+        hit: false,
+        reason: 'OUT_OF_RANGE',
+        distance: this.target.distance,
+        effectiveRange: this.target.effectiveRange
+      };
+    }
+
+    // 2. Check Line of Sight vs. Obstacle Cover
+    if (this.target.isCovered && this.target.occlusionPercent > 0.35) {
+      Sound.coverBlocked();
+      return {
+        hit: false,
+        reason: 'BLOCKED_BY_COVER',
+        coverName: this.target.coverName || 'FURNITURE',
+        occlusionPercent: Math.round(this.target.occlusionPercent * 100)
+      };
+    }
+
+    // 3. Check Crosshair Lock-on
     const isHit = this.isLocked || this.isInViewfinder;
 
     if (isHit) {
@@ -292,7 +420,7 @@ class AREngine {
       this.target.health = Math.max(0, 100 - (this.target.currentHits * 20));
       this.target.hitFlashUntil = Date.now() + 180;
 
-      // Spawn spark particles for bullet impact
+      // Spark particles for impact
       for (let i = 0; i < 15; i++) {
         this.target.sparks.push({
           x: (Math.random() - 0.5) * 40,
@@ -308,7 +436,6 @@ class AREngine {
       if (isEliminated) {
         this.target.isDying = true;
         this.target.deathStartTime = Date.now();
-        // Burst of death explosion sparks
         for (let i = 0; i < 35; i++) {
           this.target.sparks.push({
             x: (Math.random() - 0.5) * 50,
@@ -344,7 +471,7 @@ class AREngine {
   render() {
     if (!this.ctx || !this.canvas || !this.container) return;
 
-    // Dynamic auto-resize to handle screen transitions & orientation changes
+    // Auto-resize canvas
     const rect = this.container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const targetW = Math.round((rect.width || window.innerWidth) * dpr);
@@ -361,6 +488,16 @@ class AREngine {
 
     ctx.clearRect(0, 0, w, h);
 
+    // Run AI Object Detection on camera feed (throttled inside detector)
+    if (this.videoElement && this.isCameraActive) {
+      objectDetector.detect(this.videoElement, w, h);
+    }
+    const detectedObstacles = objectDetector.getObstacles();
+    this.obstacles = detectedObstacles;
+
+    // Draw Detected Tactical Obstacles in camera feed
+    this.renderObstacleOverlays(ctx, detectedObstacles, dpr);
+
     // If target has not spawned yet, only emit sweep telemetry
     if (!this.isSpawned) {
       this.isInViewfinder = false;
@@ -371,6 +508,9 @@ class AREngine {
           isInViewfinder: false,
           isLocked: false,
           distance: 0,
+          isBreached: false,
+          isCovered: false,
+          coverName: null,
           azimuth: 0,
           health: 0,
           hits: 5,
@@ -390,37 +530,60 @@ class AREngine {
     let deltaAltitude = this.target.altitude - pitch;
     deltaAltitude = Math.max(-0.4, Math.min(0.4, deltaAltitude));
 
-    // Field of View
     const fovX = (65 * Math.PI) / 180;
     const focalLength = (w / 2) / Math.tan(fovX / 2);
 
-    // Relative degrees for radar & arrow guide
     const relativeDeg = Math.round((deltaAzimuth * 180) / Math.PI);
     let directionHint = 'TARGET AHEAD';
     if (relativeDeg > 12) directionHint = `TURN RIGHT ❯❯ (${relativeDeg}°)`;
     else if (relativeDeg < -12) directionHint = `❮❮ TURN LEFT (${Math.abs(relativeDeg)}°)`;
     else directionHint = `⚡ IN FRONT (${relativeDeg}°)`;
 
-    // Is target in front of camera?
     const isFront = Math.abs(deltaAzimuth) < (Math.PI / 1.8);
     let isInViewfinder = false;
     let isLocked = false;
+    let targetScreenBounds = null;
 
     if (isFront) {
-      // Perspective projection onto screen
       const screenX = (w / 2) + Math.tan(deltaAzimuth) * focalLength;
       const screenY = (h / 2) - Math.tan(deltaAltitude) * focalLength;
 
-      // Draw when on or near screen
-      if (screenX > -250 * dpr && screenX < w + 250 * dpr) {
-        // Target is inside viewfinder
+      if (screenX > -300 * dpr && screenX < w + 300 * dpr) {
         if (screenX > 20 * dpr && screenX < w - 20 * dpr && screenY > 20 * dpr && screenY < h - 20 * dpr) {
           isInViewfinder = true;
         }
 
-        const scale = (4.0 / this.target.distance) * dpr;
+        // Perspective scaling inversely proportional to metric distance
+        // e.g. 8.2m -> scale ~0.43 (small in distance); 2.2m -> scale ~1.6 (close & clear)
+        const dist = Math.max(1.5, this.target.distance);
+        const scale = (3.5 / dist) * dpr;
         const spriteW = 150 * scale;
         const spriteH = 280 * scale;
+
+        targetScreenBounds = {
+          x: screenX - spriteW / 2,
+          y: screenY - spriteH / 2,
+          w: spriteW,
+          h: spriteH,
+          centerX: screenX,
+          centerY: screenY
+        };
+
+        // --- CHECK OBSTACLE COVER OCCLUSION ---
+        let maxOcclusion = 0;
+        let coveringObstacle = null;
+
+        for (const obs of detectedObstacles) {
+          const overlap = this.calculateOverlap(targetScreenBounds, obs);
+          if (overlap.ratio > maxOcclusion) {
+            maxOcclusion = overlap.ratio;
+            coveringObstacle = obs;
+          }
+        }
+
+        this.target.isCovered = maxOcclusion > 0.25;
+        this.target.coverName = coveringObstacle ? coveringObstacle.label : null;
+        this.target.occlusionPercent = maxOcclusion;
 
         ctx.save();
         ctx.translate(screenX, screenY);
@@ -438,7 +601,6 @@ class AREngine {
           ctx.scale(1 - deathProgress * 0.35, 1 - deathProgress * 0.35);
           ctx.globalAlpha = Math.max(0, 1 - deathProgress);
 
-          // Glowing shockwave
           ctx.strokeStyle = '#ff334b';
           ctx.lineWidth = 3 * (1 - deathProgress) * dpr;
           ctx.beginPath();
@@ -447,16 +609,26 @@ class AREngine {
         }
 
         const isHitFlashing = Date.now() < (this.target.hitFlashUntil || 0);
+        const isBreached = this.target.distance <= this.target.effectiveRange;
 
-        // 3D Threat Glow Ring (only if not dying)
+        // 3D Threat Glow Ring
         if (!this.target.isDying) {
-          ctx.strokeStyle = isHitFlashing ? '#ffffff' : (isInViewfinder ? '#ff334b' : '#ff9933');
-          ctx.lineWidth = (isHitFlashing ? 4.5 : 3) * dpr;
+          if (this.target.isCovered) {
+            ctx.strokeStyle = '#e5a93c'; // Yellow cover shield
+            ctx.lineWidth = 2.5 * dpr;
+            ctx.setLineDash([8 * dpr, 4 * dpr]);
+          } else {
+            ctx.strokeStyle = isHitFlashing ? '#ffffff' : (isBreached ? '#ff334b' : '#00f2fe');
+            ctx.lineWidth = (isHitFlashing ? 4.5 : 3) * dpr;
+            ctx.setLineDash([]);
+          }
+
           ctx.beginPath();
           ctx.arc(0, 0, (spriteW / 2) + 16 * dpr, 0, Math.PI * 2);
           ctx.stroke();
+          ctx.setLineDash([]);
 
-          // 3D HEALTH BAR (Top of Hostile)
+          // 3D HEALTH BAR
           const barW = 130 * dpr;
           const barH = 10 * dpr;
           const barY = -spriteH / 2 - 28 * dpr;
@@ -464,7 +636,7 @@ class AREngine {
 
           ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
           ctx.fillRect(-barW / 2, barY, barW, barH);
-          ctx.strokeStyle = '#e5a93c';
+          ctx.strokeStyle = isBreached ? '#e5a93c' : '#00f2fe';
           ctx.lineWidth = 1 * dpr;
           ctx.strokeRect(-barW / 2, barY, barW, barH);
 
@@ -476,17 +648,32 @@ class AREngine {
           ctx.textAlign = 'center';
           const hitPips = '●'.repeat(this.target.currentHits || 0) + '○'.repeat(Math.max(0, 5 - (this.target.currentHits || 0)));
           ctx.fillText(`HP: ${this.target.health}%  [${hitPips}]`, 0, barY - 4 * dpr);
+
+          // Spatial Distance Tag (Above Target)
+          const distTagY = barY - 14 * dpr;
+          ctx.fillStyle = isBreached ? '#00ff88' : '#00f2fe';
+          ctx.font = `bold ${9 * dpr}px monospace`;
+          const distText = isBreached 
+            ? `📍 ${this.target.distance.toFixed(1)}m [IN BREACH RANGE]` 
+            : `📍 ${this.target.distance.toFixed(1)}m [STEP FORWARD]`;
+          ctx.fillText(distText, 0, distTagY);
         }
 
-        // Draw 3D Target Sprite or Silhouette Fallback
+        // Draw 3D Target Sprite
         if (this.target.isLoaded && this.target.image) {
           if (isHitFlashing) {
             ctx.filter = 'brightness(1.8) contrast(1.4) drop-shadow(0 0 15px #ff334b)';
+          } else if (this.target.isCovered) {
+            // Semi-transparent thermal ghosting when behind furniture cover
+            ctx.globalAlpha = 0.55;
+            ctx.filter = 'contrast(1.2) drop-shadow(0 0 8px #e5a93c)';
           }
+
           ctx.drawImage(this.target.image, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
           ctx.filter = 'none';
+          ctx.globalAlpha = 1.0;
         } else {
-          // Tactical Silhouette
+          // Tactical Silhouette Fallback
           ctx.fillStyle = isHitFlashing ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 51, 75, 0.4)';
           ctx.fillRect(-spriteW / 2, -spriteH / 2, spriteW, spriteH);
           ctx.strokeStyle = '#ff334b';
@@ -511,19 +698,39 @@ class AREngine {
           }
         }
 
-        // 3D Hostile Label Tag
-        ctx.fillStyle = isHitFlashing ? '#ffffff' : '#ff334b';
-        ctx.fillRect(-65 * dpr, spriteH / 2 + 6 * dpr, 130 * dpr, 22 * dpr);
-        ctx.fillStyle = isHitFlashing ? '#ff0000' : '#ffffff';
-        ctx.font = `bold ${10 * dpr}px monospace`;
-        ctx.textAlign = 'center';
-        ctx.fillText(isHitFlashing ? '💥 BULLET IMPACT!' : 'HOSTILE TARGET', 0, spriteH / 2 + 21 * dpr);
+        // 3D Hostile Label Tag / Cover Warning Tag
+        const tagW = 140 * dpr;
+        const tagH = 22 * dpr;
+        const tagY = spriteH / 2 + 6 * dpr;
+
+        if (this.target.isCovered) {
+          ctx.fillStyle = '#e5a93c';
+          ctx.fillRect(-tagW / 2, tagY, tagW, tagH);
+          ctx.fillStyle = '#000000';
+          ctx.font = `bold ${9 * dpr}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText(`🛡️ IN COVER [${this.target.coverName}]`, 0, tagY + 15 * dpr);
+        } else if (!isBreached) {
+          ctx.fillStyle = 'rgba(0, 242, 254, 0.9)';
+          ctx.fillRect(-tagW / 2, tagY, tagW, tagH);
+          ctx.fillStyle = '#070a0b';
+          ctx.font = `bold ${9 * dpr}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText(`⚠️ STEP FORWARD (< 3.5m)`, 0, tagY + 15 * dpr);
+        } else {
+          ctx.fillStyle = isHitFlashing ? '#ffffff' : '#ff334b';
+          ctx.fillRect(-tagW / 2, tagY, tagW, tagH);
+          ctx.fillStyle = isHitFlashing ? '#ff0000' : '#ffffff';
+          ctx.font = `bold ${10 * dpr}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText(isHitFlashing ? '💥 BULLET IMPACT!' : 'HOSTILE TARGET', 0, tagY + 15 * dpr);
+        }
 
         ctx.restore();
 
-        // Check Crosshair Lock-on (distance from center of screen)
+        // Check Crosshair Lock-on (only when in breach range and centered)
         const distFromCenter = Math.hypot(screenX - w / 2, screenY - h / 2);
-        if (distFromCenter < 85 * dpr) {
+        if (distFromCenter < 85 * dpr && isBreached && !this.target.isCovered) {
           isLocked = true;
         }
       }
@@ -538,12 +745,105 @@ class AREngine {
         isInViewfinder,
         isLocked,
         distance: this.target.distance,
+        isBreached: this.target.distance <= this.target.effectiveRange,
+        isCovered: this.target.isCovered,
+        coverName: this.target.coverName,
+        occlusionPercent: Math.round(this.target.occlusionPercent * 100),
+        stepsTaken: this.stepsTaken,
         azimuth: relativeDeg,
         health: this.target.health || 100,
         hits: this.target.currentHits || 0,
         directionHint
       });
     }
+  }
+
+  // Draw cybernetic bounding overlays for detected furniture & obstacles
+  renderObstacleOverlays(ctx, obstacles, dpr) {
+    if (!obstacles || obstacles.length === 0) return;
+
+    ctx.save();
+    for (const obs of obstacles) {
+      const { x, y, width, height, label, score } = obs;
+
+      // Obstacle bounding box
+      ctx.strokeStyle = 'rgba(0, 242, 254, 0.4)';
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.setLineDash([6 * dpr, 4 * dpr]);
+      ctx.strokeRect(x, y, width, height);
+      ctx.setLineDash([]);
+
+      // Corner brackets
+      const cornerLen = Math.min(16 * dpr, width * 0.2, height * 0.2);
+      ctx.strokeStyle = '#00f2fe';
+      ctx.lineWidth = 2.5 * dpr;
+
+      // Top-Left
+      ctx.beginPath();
+      ctx.moveTo(x, y + cornerLen);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + cornerLen, y);
+      ctx.stroke();
+
+      // Top-Right
+      ctx.beginPath();
+      ctx.moveTo(x + width - cornerLen, y);
+      ctx.lineTo(x + width, y);
+      ctx.lineTo(x + width, y + cornerLen);
+      ctx.stroke();
+
+      // Bottom-Left
+      ctx.beginPath();
+      ctx.moveTo(x, y + height - cornerLen);
+      ctx.lineTo(x, y + height);
+      ctx.lineTo(x + cornerLen, y + height);
+      ctx.stroke();
+
+      // Bottom-Right
+      ctx.beginPath();
+      ctx.moveTo(x + width - cornerLen, y + height);
+      ctx.lineTo(x + width, y + height);
+      ctx.lineTo(x + width, y + height - cornerLen);
+      ctx.stroke();
+
+      // Label Tag
+      const labelText = `[${label} // ${score}%]`;
+      ctx.font = `bold ${8.5 * dpr}px monospace`;
+      const textMetrics = ctx.measureText(labelText);
+      const tagW = textMetrics.width + 12 * dpr;
+      const tagH = 16 * dpr;
+
+      ctx.fillStyle = 'rgba(7, 10, 11, 0.85)';
+      ctx.fillRect(x, Math.max(0, y - tagH), tagW, tagH);
+      ctx.strokeStyle = '#00f2fe';
+      ctx.lineWidth = 1 * dpr;
+      ctx.strokeRect(x, Math.max(0, y - tagH), tagW, tagH);
+
+      ctx.fillStyle = '#00f2fe';
+      ctx.textAlign = 'left';
+      ctx.fillText(labelText, x + 6 * dpr, Math.max(0, y - tagH) + 11.5 * dpr);
+    }
+    ctx.restore();
+  }
+
+  // Calculate 2D overlap between target bounding box and obstacle bounding box
+  calculateOverlap(targetBox, obstacleBox) {
+    if (!targetBox || !obstacleBox) return { area: 0, ratio: 0 };
+
+    const x1 = Math.max(targetBox.x, obstacleBox.x);
+    const y1 = Math.max(targetBox.y, obstacleBox.y);
+    const x2 = Math.min(targetBox.x + targetBox.w, obstacleBox.x + obstacleBox.width);
+    const y2 = Math.min(targetBox.y + targetBox.h, obstacleBox.y + obstacleBox.height);
+
+    if (x2 <= x1 || y2 <= y1) {
+      return { area: 0, ratio: 0 };
+    }
+
+    const overlapArea = (x2 - x1) * (y2 - y1);
+    const targetArea = targetBox.w * targetBox.h;
+    const ratio = Math.min(1.0, overlapArea / Math.max(1, targetArea));
+
+    return { area: overlapArea, ratio };
   }
 
   // Shutter Snapshot Evidence Capturer
@@ -557,7 +857,7 @@ class AREngine {
 
       const ctx = offCanvas.getContext('2d');
 
-      // 1. Draw video background (safe try-catch for mobile WebKit cross-origin)
+      // 1. Draw video background
       if (this.isCameraActive && this.videoElement && this.videoElement.videoWidth) {
         try {
           ctx.drawImage(this.videoElement, 0, 0, w, h);
@@ -589,7 +889,7 @@ class AREngine {
       const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
       ctx.fillStyle = '#ffffff';
       ctx.font = '14px monospace';
-      ctx.fillText(`TIMESTAMP: ${timestamp}`, 40, 85);
+      ctx.fillText(`TIMESTAMP: ${timestamp} | RANGE: ${this.target.distance.toFixed(1)}m`, 40, 85);
 
       try {
         return offCanvas.toDataURL('image/jpeg', 0.8);
@@ -624,6 +924,7 @@ class AREngine {
     this.target.health = 100;
     this.target.currentHits = 0;
     this.target.sparks = [];
+    this.target.isCovered = false;
   }
 }
 

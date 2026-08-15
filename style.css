@@ -1001,6 +1001,27 @@ body, html {
   opacity: 1;
 }
 
+.hud-cover-warning {
+  position: absolute;
+  top: -30px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: bold;
+  color: #070a0b;
+  background: #e5a93c;
+  padding: 3px 10px;
+  border-radius: 3px;
+  border: 1px solid #ffffff;
+  box-shadow: 0 0 10px rgba(229, 169, 60, 0.6);
+  white-space: nowrap;
+  animation: pulseCover 1.2s infinite alternate;
+}
+
+@keyframes pulseCover {
+  from { transform: scale(0.98); }
+  to { transform: scale(1.02); }
+}
+
 .hud-bottom-info {
   text-align: center;
   font-family: var(--font-mono);
@@ -1041,11 +1062,35 @@ body, html {
   border-radius: 4px;
   font-family: var(--font-mono);
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.camera-switch-btn:hover {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.step-btn {
+  background: rgba(0, 242, 254, 0.15);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-weight: bold;
+}
+
+.step-btn:active {
+  background: var(--accent-cyan);
+  color: #070a0b;
+  transform: scale(0.95);
 }
 
 .hp-badge {
   border-color: #00ff88;
   color: #00ff88;
+}
+
+.distance-badge {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
 }
 
 .fire-btn {

@@ -359,5 +359,110 @@ export const Sound = {
       osc.start();
       osc.stop(ctx.currentTime + 0.85);
     } catch (e) {}
+  },
+
+  // Tactical Commando Footstep (Low thud + boot scuff)
+  footstep() {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // 1. Low Thud Impact
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(110, now);
+      osc.frequency.exponentialRampToValueAtTime(35, now + 0.09);
+      oscGain.gain.setValueAtTime(0.3, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+      osc.connect(oscGain);
+      oscGain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.09);
+
+      // 2. Gravel / Boot Texture Rustle
+      const bufferSize = Math.floor(ctx.sampleRate * 0.06);
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.015));
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(750, now);
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.15, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noise.start(now);
+    } catch (e) {
+      console.warn(e);
+    }
+  },
+
+  // Cover Blocked Ricochet Ping / Deflection
+  coverBlocked() {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // Metallic Ricochet Whine
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(900, now);
+      osc.frequency.exponentialRampToValueAtTime(2400, now + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(300, now + 0.22);
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.22);
+
+      // Heavy dull obstacle thud
+      const thud = ctx.createOscillator();
+      const thudGain = ctx.createGain();
+      thud.type = 'triangle';
+      thud.frequency.setValueAtTime(160, now);
+      thud.frequency.exponentialRampToValueAtTime(40, now + 0.12);
+      thudGain.gain.setValueAtTime(0.4, now);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      thud.connect(thudGain);
+      thudGain.connect(ctx.destination);
+      thud.start(now);
+      thud.stop(now + 0.12);
+    } catch (e) {
+      console.warn(e);
+    }
+  },
+
+  // Range Acquired / Breach Proximity Lock
+  rangeAcquired() {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      [1046.50, 1318.51].forEach((freq, i) => { // C6, E6
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.07);
+        gain.gain.setValueAtTime(0.2, now + i * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.12);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.07);
+        osc.stop(now + i * 0.07 + 0.12);
+      });
+    } catch (e) {
+      console.warn(e);
+    }
   }
 };
