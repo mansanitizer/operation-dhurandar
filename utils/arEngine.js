@@ -31,9 +31,23 @@ class AREngine {
       isLoaded: false
     };
 
+    // Progressive Hitbox Difficulty Scaling
+    this.roundNumber = 1;
+    this.baseLockRadius = 90; // Base lock-on radius in screen pixels
+    this.hitboxScale = 1.0;
+    this.currentLockRadius = 90;
+
     // Telemetry & Lock-on
     this.isLocked = false;
     this.onTelemetryUpdate = null;
+  }
+
+  // Set Round & scale hitbox progressively smaller by 8% each successive round
+  setRound(roundNum = 1) {
+    this.roundNumber = Math.max(1, roundNum);
+    // 8% smaller per successive round, floor at 40% for elite sniper precision
+    this.hitboxScale = Math.max(0.40, +(1.0 - (this.roundNumber - 1) * 0.08).toFixed(2));
+    this.currentLockRadius = Math.round(this.baseLockRadius * this.hitboxScale);
   }
 
   // Request Mobile Permissions (Camera & iOS Gyro)
@@ -254,7 +268,8 @@ class AREngine {
   }
 
   // Spawn Target Sprite Fixed in 3D Space (Gated by Spawn Trigger)
-  spawnTarget(imageUrl) {
+  spawnTarget(imageUrl, roundNum = 1) {
+    this.setRound(roundNum);
     const current = this.getCurrentViewOrientation();
     
     // Spawn target offset 65 to 110 degrees away from current gaze (requires player to turn & hunt!)
@@ -301,8 +316,8 @@ class AREngine {
       return { hit: true, isEliminated: true, remainingHp: 0, hits: 5, maxHits: 5 };
     }
 
-    // Check if target is locked or in crosshair zone
-    const isHit = this.isLocked || this.isInViewfinder;
+    // Bullet lands when target is centered within the progressive precision hitbox
+    const isHit = this.isLocked;
 
     if (isHit) {
       this.target.currentHits = Math.min(this.target.maxHits, (this.target.currentHits || 0) + 1);
@@ -593,9 +608,10 @@ class AREngine {
 
         ctx.restore();
 
-        // Check Crosshair Lock-on (distance from center of screen)
+        // Check Crosshair Lock-on with Progressive Scaled Hitbox Radius
+        const activeLockRadius = (this.currentLockRadius || this.baseLockRadius || 90) * dpr;
         const distFromCenter = Math.hypot(screenX - w / 2, screenY - h / 2);
-        if (distFromCenter < 85 * dpr) {
+        if (distFromCenter < activeLockRadius) {
           isLocked = true;
         }
       }
@@ -613,6 +629,8 @@ class AREngine {
         azimuth: relativeDeg,
         health: this.target.health || 100,
         hits: this.target.currentHits || 0,
+        hitboxScale: Math.round(this.hitboxScale * 100),
+        roundNumber: this.roundNumber,
         directionHint
       });
     }

@@ -671,7 +671,8 @@ async function start3DAR() {
       state.missionState = 'NEARBY';
       
       const currentTarget = state.targetsList[state.targetIndex];
-      arEngine.spawnTarget(currentTarget.bodySprite);
+      const currentRound = state.gameMode === 'ROGUE' ? (state.rogueStreak + 1) : ((state.targetIndex || 0) + 1);
+      arEngine.spawnTarget(currentTarget.bodySprite, currentRound);
 
       playSound('radarPing', 1500);
       if (statusBadge) {
@@ -718,7 +719,8 @@ function spawnNextRogueTarget() {
     if (state.currentScreen === 'mission' && !state.missionEnded) {
       state.missionState = 'NEARBY';
       const currentTarget = state.targetsList[state.targetIndex];
-      arEngine.spawnTarget(currentTarget.bodySprite);
+      const currentRound = state.rogueStreak + 1;
+      arEngine.spawnTarget(currentTarget.bodySprite, currentRound);
 
       playSound('radarPing', 1600);
       if (statusBadge) {
@@ -815,14 +817,14 @@ function handleARTelemetry(data) {
   if (isLocked) {
     if (lockonIndicator) lockonIndicator.classList.add('active');
     if (statusBadge) {
-      statusBadge.textContent = '⚡ LOCKED ON HOSTILE // TAP TO FIRE!';
+      statusBadge.textContent = `⚡ LOCKED [HITBOX: ${data.hitboxScale || 100}%] // TAP TO FIRE!`;
       statusBadge.style.borderColor = '#00ff88';
       statusBadge.style.color = '#00ff88';
     }
   } else {
     if (lockonIndicator) lockonIndicator.classList.remove('active');
     if (state.timerStarted && statusBadge) {
-      statusBadge.textContent = '🚨 TARGET IN SIGHT — ALIGN & SHOOT!';
+      statusBadge.textContent = `🚨 IN SIGHT [HITBOX: ${data.hitboxScale || 100}%] — ALIGN CROSSHAIR!`;
       statusBadge.style.borderColor = '#ff334b';
       statusBadge.style.color = '#ff334b';
     }
