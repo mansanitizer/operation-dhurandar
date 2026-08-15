@@ -24,7 +24,7 @@ const state = {
   rogueStreak: 0,
   arInitialized: false,
   missionTimerInterval: null,
-  timeLeft: 5.0,
+  timeLeft: 4.0,
   isTargetLocked: false,
   capturedEvidence: null,
 };
@@ -580,7 +580,7 @@ async function start3DAR() {
   state.timerStarted = false;
   state.missionEnded = false;
   state.outcomeProcessed = false;
-  state.timeLeft = 5.0;
+  state.timeLeft = 4.0;
   if (state.missionTimerInterval) clearInterval(state.missionTimerInterval);
   if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
 
@@ -639,7 +639,7 @@ function spawnNextRogueTarget() {
   if (state.currentScreen !== 'mission' || state.missionEnded) return;
 
   state.timerStarted = false;
-  state.timeLeft = 5.0;
+  state.timeLeft = 4.0;
   arEngine.isSpawned = false;
 
   const timerElem = document.getElementById('mission-timer');
@@ -681,19 +681,19 @@ function spawnNextRogueTarget() {
   }, spawnDelay);
 }
 
-function start5SecondWindow() {
+function start4SecondWindow() {
   if (state.missionEnded) return;
 
   state.timerStarted = true;
   state.missionState = 'ENGAGED';
-  state.timeLeft = 5.0;
+  state.timeLeft = 4.0;
 
   const timerElem = document.getElementById('mission-timer');
   if (timerElem) timerElem.style.color = '#ff334b';
 
   const statusBadge = document.getElementById('hud-status');
   if (statusBadge) {
-    statusBadge.textContent = '🚨 TARGET IN SIGHT — 5s ENGAGEMENT WINDOW!';
+    statusBadge.textContent = '🚨 TARGET IN SIGHT — 4s ENGAGEMENT WINDOW!';
     statusBadge.style.borderColor = '#ff334b';
     statusBadge.style.color = '#ff334b';
   }
@@ -701,7 +701,7 @@ function start5SecondWindow() {
   playSound('beep', 1200, 'sawtooth');
 
   const tickIntervalMs = 50;
-  let lastSecondInt = 5;
+  let lastSecondInt = 4;
 
   state.missionTimerInterval = setInterval(() => {
     if (state.missionEnded) {
@@ -760,7 +760,7 @@ function handleARTelemetry(data) {
   const statusBadge = document.getElementById('hud-status');
 
   if (isInViewfinder && !state.timerStarted && state.currentScreen === 'mission') {
-    start5SecondWindow();
+    start4SecondWindow();
   }
 
   if (isLocked) {
