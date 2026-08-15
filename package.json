@@ -4,10 +4,16 @@
   "description": "Tactical Covert AR Web Game",
   "type": "module",
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server.js",
+    "convex:dev": "convex dev"
   },
   "devDependencies": {
     "vite": "^8.2.1"
+  },
+  "dependencies": {
+    "convex": "^1.44.0"
   }
 }

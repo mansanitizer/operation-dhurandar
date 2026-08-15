@@ -996,6 +996,54 @@ body, html {
   cursor: pointer;
 }
 
+.hp-badge {
+  border-color: #00ff88;
+  color: #00ff88;
+}
+
+.fire-btn {
+  flex: 1;
+  max-width: 190px;
+  height: 54px;
+  background: linear-gradient(135deg, #ff334b 0%, #b81c2c 100%);
+  border: 2px solid #ff9933;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(255, 51, 75, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.2);
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.fire-btn:active {
+  transform: scale(0.92);
+  box-shadow: 0 0 35px rgba(255, 153, 51, 0.9), inset 0 0 20px rgba(255, 255, 255, 0.5);
+  background: linear-gradient(135deg, #ff9933 0%, #ff334b 100%);
+}
+
+.fire-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fire-icon {
+  font-size: 20px;
+}
+
+.fire-text {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
 .abort-btn {
   border-color: rgba(255, 51, 75, 0.5);
   color: var(--accent-red);
@@ -1022,12 +1070,28 @@ body, html {
 .shutter-inner {
   width: 52px;
   height: 52px;
-  background: var(--accent-red);
+  background: #fff;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+}
+
+.shutter-icon {
+  font-size: 24px;
+}
+
+/* Gunshot Screen Recoil Shake */
+@keyframes gun-recoil {
+  0% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-2px, -6px) scale(1.01); }
+  50% { transform: translate(3px, 2px) scale(1); }
+  75% { transform: translate(-1px, 1px) scale(1); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+.screen-recoil {
+  animation: gun-recoil 0.15s ease-out;
 }
 
 .shutter-flash {
@@ -1346,3 +1410,257 @@ body, html {
   line-height: 1.4;
   margin-top: 4px;
 }
+
+/* ==========================================================================
+   CONVEX DATABASE REAL-TIME UI ENHANCEMENTS
+   ========================================================================== */
+
+/* Top Nav DB Status Badge */
+.db-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0, 255, 136, 0.08);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--accent-green);
+  letter-spacing: 1px;
+}
+
+.db-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--accent-green);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent-green);
+  animation: pulse-dot 1.5s infinite;
+}
+
+/* Live HQ Ops Ticker */
+.live-ops-ticker {
+  background: #040807;
+  border-bottom: 1px solid rgba(0, 242, 254, 0.25);
+  padding: 5px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: #c9d1d9;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ticker-prefix {
+  color: var(--accent-gold);
+  font-weight: bold;
+  flex-shrink: 0;
+  letter-spacing: 1px;
+}
+
+.ticker-text {
+  color: var(--accent-cyan);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: ticker-fade 0.5s ease-in-out;
+}
+
+@keyframes ticker-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Auth Regiment Selector */
+select#agent-squadron {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(229, 169, 60, 0.4);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+
+select#agent-squadron option {
+  background: #0e1416;
+  color: #fff;
+}
+
+/* Menu Operative Score & Clearance */
+.op-score-badge {
+  background: rgba(229, 169, 60, 0.15);
+  border: 1px solid rgba(229, 169, 60, 0.5);
+  color: var(--accent-gold);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: bold;
+  padding: 2px 7px;
+  border-radius: 3px;
+  letter-spacing: 1px;
+}
+
+.tactical-nav-item.leaderboard-highlight {
+  border-left-color: var(--accent-cyan);
+}
+
+.tactical-nav-item.leaderboard-highlight .nav-number {
+  color: var(--accent-cyan);
+}
+
+/* Result Screen Score Card */
+.score-card {
+  background: rgba(229, 169, 60, 0.08);
+  border: 1px solid rgba(229, 169, 60, 0.35);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+
+.score-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.score-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.score-value {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--accent-gold);
+  letter-spacing: 1.5px;
+  text-shadow: 0 0 10px rgba(229, 169, 60, 0.5);
+}
+
+.score-details {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rank-promo-badge {
+  background: rgba(0, 255, 136, 0.2);
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  letter-spacing: 1px;
+}
+
+/* Hero Live Salutes & Tributes */
+.hero-salutes-live {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--tiranga-saffron);
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.hero-tribute-box {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.hero-tribute-box input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 10px;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   SCREEN 9: TOP OPERATIVES LEADERBOARD
+   ========================================================================== */
+.leaderboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 20px;
+}
+
+.leaderboard-card {
+  background: var(--bg-panel);
+  border: 1px solid rgba(0, 242, 254, 0.25);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.tactical-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-align: left;
+}
+
+.tactical-table thead {
+  background: rgba(0, 242, 254, 0.12);
+  border-bottom: 1px solid rgba(0, 242, 254, 0.3);
+}
+
+.tactical-table th {
+  padding: 10px 8px;
+  color: var(--accent-cyan);
+  font-weight: bold;
+  letter-spacing: 1px;
+  font-size: 9.5px;
+}
+
+.tactical-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+}
+
+.tactical-table tr:hover {
+  background: rgba(229, 169, 60, 0.06);
+}
+
+.tactical-table .rank-num {
+  color: var(--accent-gold);
+  font-weight: bold;
+}
+
+.tactical-table .table-callsign {
+  font-family: var(--font-display);
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+.tactical-table .table-score {
+  color: var(--accent-gold);
+  font-weight: bold;
+}
+
+.tactical-table .table-accuracy {
+  color: var(--accent-green);
+}
+

@@ -16,11 +16,20 @@
       <div class="nav-left">
         <span class="live-dot"></span>
         <span class="classified-tag">DIRECTORATE OF SPECIAL OPERATIONS</span>
+        <span class="db-status-badge" id="db-status-badge">
+          <span class="db-dot"></span> <span id="db-status-text">CONVEX DB // LIVE</span>
+        </span>
       </div>
       <div class="nav-right">
         <button id="btn-sound-toggle" class="icon-btn" title="Toggle Tactical Audio" aria-label="Sound Toggle">🔊</button>
       </div>
     </header>
+
+    <!-- LIVE REAL-TIME OPERATIONS TICKER -->
+    <div class="live-ops-ticker" id="live-ops-ticker">
+      <span class="ticker-prefix">⚡ HQ INTEL:</span>
+      <span class="ticker-text" id="ticker-text">INITIALIZING QUANTUM ENCRYPTED LINK // CONVEX DB ONLINE</span>
+    </div>
 
     <!-- SCREEN 1: AUTHENTICATION / CLEARANCE -->
     <section id="screen-auth" class="screen active">
@@ -29,7 +38,6 @@
         <div class="hero-emblem-banner">
           <svg class="master-balidan-emblem" viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <!-- Metallic Gold Gradients -->
               <linearGradient id="goldPlate" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stop-color="#fff0a6" />
                 <stop offset="30%" stop-color="#d4a338" />
@@ -43,7 +51,6 @@
                 <stop offset="100%" stop-color="#996c14" />
               </linearGradient>
 
-              <!-- Blade Steel Gradient -->
               <linearGradient id="steelBlade" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stop-color="#e2e8f0" />
                 <stop offset="48%" stop-color="#ffffff" />
@@ -51,18 +58,11 @@
                 <stop offset="100%" stop-color="#475569" />
               </linearGradient>
 
-              <!-- Shield Carbon / Armor Gradient -->
               <radialGradient id="carbonShield" cx="50%" cy="40%" r="60%">
                 <stop offset="0%" stop-color="#243328" />
                 <stop offset="60%" stop-color="#141c16" />
                 <stop offset="100%" stop-color="#080c09" />
               </radialGradient>
-
-              <!-- Glow filter -->
-              <filter id="emblemGlow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="6" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
 
               <filter id="goldDropShadow" x="-10%" y="-10%" width="120%" height="120%">
                 <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.8"/>
@@ -79,15 +79,9 @@
                 <polygon points="170,55 240,75 240,165 170,240 100,165 100,75" />
               </clipPath>
               <g clip-path="url(#innerShieldClip)">
-                <!-- Saffron band -->
                 <rect x="90" y="50" width="160" height="45" fill="#ff9933" opacity="0.85" />
-                <!-- White band -->
                 <rect x="90" y="95" width="160" height="45" fill="#ffffff" opacity="0.9" />
-                <!-- Green band -->
                 <rect x="90" y="140" width="160" height="110" fill="#138808" opacity="0.85" />
-                <!-- Subtle texture lines -->
-                <line x1="90" y1="95" x2="250" y2="95" stroke="#ccc" stroke-width="1" />
-                <line x1="90" y1="140" x2="250" y2="140" stroke="#ccc" stroke-width="1" />
               </g>
               <polygon points="170,55 240,75 240,165 170,240 100,165 100,75" fill="none" stroke="url(#goldPlate)" stroke-width="2" />
             </g>
@@ -96,87 +90,46 @@
             <g transform="translate(170, 36)">
               <circle cx="0" cy="0" r="14" fill="#080c09" stroke="url(#goldLight)" stroke-width="2" />
               <circle cx="0" cy="0" r="3" fill="url(#goldLight)" />
-              <!-- 12 Spoke lines -->
               <line x1="0" y1="-12" x2="0" y2="12" stroke="url(#goldLight)" stroke-width="1" />
               <line x1="-12" y1="0" x2="12" y2="0" stroke="url(#goldLight)" stroke-width="1" />
-              <line x1="-8.5" y1="-8.5" x2="8.5" y2="8.5" stroke="url(#goldLight)" stroke-width="1" />
-              <line x1="-8.5" y1="8.5" x2="8.5" y2="-8.5" stroke="url(#goldLight)" stroke-width="1" />
-              <line x1="-4.6" y1="-11" x2="4.6" y2="11" stroke="url(#goldLight)" stroke-width="0.8" />
-              <line x1="-11" y1="-4.6" x2="11" y2="4.6" stroke="url(#goldLight)" stroke-width="0.8" />
             </g>
 
-            <!-- Wing Feathers Left (Majestic Spread) -->
+            <!-- Wing Feathers Left & Right -->
             <g filter="url(#goldDropShadow)">
-              <!-- Upper Wing Tier Left -->
               <path d="M170,145 C130,110 80,105 40,70 C50,110 90,145 130,165 C150,175 165,178 170,180 Z" fill="url(#goldPlate)" />
               <path d="M170,155 C135,130 95,130 55,100 C68,135 105,165 145,182 Z" fill="url(#goldLight)" />
-              <path d="M170,168 C140,150 110,150 75,130 C90,160 125,185 155,195 Z" fill="url(#goldPlate)" />
-
-              <!-- Wing Feathers Right (Mirror) -->
               <path d="M170,145 C210,110 260,105 300,70 C290,110 250,145 210,165 C190,175 175,178 170,180 Z" fill="url(#goldPlate)" />
               <path d="M170,155 C205,130 245,130 285,100 C272,135 235,165 195,182 Z" fill="url(#goldLight)" />
-              <path d="M170,168 C200,150 230,150 265,130 C250,160 215,185 185,195 Z" fill="url(#goldPlate)" />
             </g>
 
-            <!-- Commando Dagger (Central Upward Blade) -->
+            <!-- Commando Dagger -->
             <g filter="url(#goldDropShadow)">
-              <!-- Blade Shadow / Outline -->
-              <polygon points="170,48 182,75 180,175 170,185 160,175 158,75" fill="#111" />
-              <!-- Blade Surface -->
               <polygon points="170,50 181,75 179,172 170,182 161,172 159,75" fill="url(#steelBlade)" stroke="#334155" stroke-width="0.75" />
-              <!-- Blade Center Blood Groove Ridge -->
-              <line x1="170" y1="52" x2="170" y2="172" stroke="#1e293b" stroke-width="1.5" />
-              
-              <!-- Serrations on Blade Edge -->
-              <polygon points="180,105 185,110 180,115" fill="#334155" />
-              <polygon points="180,120 185,125 180,130" fill="#334155" />
-              <polygon points="180,135 185,140 180,145" fill="#334155" />
-              <polygon points="160,105 155,110 160,115" fill="#334155" />
-              <polygon points="160,120 155,125 160,130" fill="#334155" />
-              <polygon points="160,135 155,140 160,145" fill="#334155" />
-
-              <!-- Crossguard -->
               <rect x="142" y="172" width="56" height="10" rx="3" fill="url(#goldPlate)" stroke="#3a2503" stroke-width="1" />
-              <circle cx="170" cy="177" r="3" fill="#fff" opacity="0.6" />
-
-              <!-- Textured Dagger Grip / Hilt -->
               <rect x="162" y="182" width="16" height="30" fill="#18181b" stroke="url(#goldLight)" stroke-width="1" />
-              <line x1="162" y1="188" x2="178" y2="188" stroke="url(#goldLight)" stroke-width="1" />
-              <line x1="162" y1="194" x2="178" y2="194" stroke="url(#goldLight)" stroke-width="1" />
-              <line x1="162" y1="200" x2="178" y2="200" stroke="url(#goldLight)" stroke-width="1" />
-              <line x1="162" y1="206" x2="178" y2="206" stroke="url(#goldLight)" stroke-width="1" />
-
-              <!-- Pommel Skull Crusher -->
               <polygon points="170,220 178,212 162,212" fill="url(#goldPlate)" stroke="#3a2503" stroke-width="1" />
             </g>
 
-            <!-- Top Banner: OPERATION DHURANDAR -->
+            <!-- Top Banner -->
             <g filter="url(#goldDropShadow)">
               <path d="M85,38 L255,38 L245,60 L95,60 Z" fill="#080c09" stroke="url(#goldPlate)" stroke-width="2" />
               <text x="170" y="53" text-anchor="middle" font-family="'Chakra Petch', sans-serif" font-weight="700" font-size="11" fill="url(#goldLight)" letter-spacing="2.5">OPERATION DHURANDAR</text>
             </g>
 
-            <!-- Prominent Bottom Ribbon with exact, beautiful Devanagari "बलिदान" -->
+            <!-- Ribbon: बलिदान -->
             <g filter="url(#goldDropShadow)" transform="translate(0, 10)">
-              <!-- Ribbon Background Scroll -->
               <path d="M45,260 L75,248 L265,248 L295,260 L280,290 L260,280 L80,280 L60,290 Z" fill="#0c120e" stroke="url(#goldPlate)" stroke-width="3" />
-              <path d="M75,250 L265,250 L258,278 L82,278 Z" fill="url(#carbonShield)" />
-              
-              <!-- Saffron & Green Accent Lines on Ribbon -->
               <line x1="82" y1="252" x2="258" y2="252" stroke="#ff9933" stroke-width="2" />
               <line x1="82" y1="276" x2="258" y2="276" stroke="#138808" stroke-width="2" />
-
-              <!-- EXACT CORRECT DEVANAGARI TEXT: "बलिदान" -->
-              <text x="170" y="272" text-anchor="middle" font-family="'Tiro Devanagari Hindi', 'Yatra One', serif" font-weight="bold" font-size="22" fill="url(#goldLight)" letter-spacing="4" filter="drop-shadow(0 0 8px rgba(255, 208, 102, 0.8))">बलिदान</text>
+              <text x="170" y="272" text-anchor="middle" font-family="'Tiro Devanagari Hindi', 'Yatra One', serif" font-weight="bold" font-size="22" fill="url(#goldLight)" letter-spacing="4">बलिदान</text>
             </g>
 
-            <!-- Subtitle Badge Below Ribbon -->
             <text x="170" y="324" text-anchor="middle" font-family="'Courier Prime', monospace" font-weight="700" font-size="8.5" fill="var(--accent-gold)" letter-spacing="3">SPECIAL FORCES • COMMANDO</text>
           </svg>
         </div>
 
         <div class="auth-header-text">
-          <p class="subtitle">INDIAN SPECIAL OPERATIONS COMMAND • LEVEL 5</p>
+          <p class="subtitle">INDIAN SPECIAL OPERATIONS COMMAND • CONVEX DB</p>
         </div>
 
         <div id="auth-form" class="auth-form">
@@ -186,12 +139,22 @@
           </div>
 
           <div class="input-group">
-            <label for="agent-passcode">SECURITY CLEARANCE PASSCODE</label>
+            <label for="agent-squadron">SPECIAL FORCES REGIMENT</label>
+            <select id="agent-squadron">
+              <option value="PARA SF">🦅 1 PARA (SPECIAL FORCES)</option>
+              <option value="NSG BLACK CATS">⚡ 51 SAG (NSG BLACK CATS)</option>
+              <option value="MARCOS">🌊 MARCOS (MARINE COMMANDOS)</option>
+              <option value="GARUD">🪽 GARUD SPECIAL FORCES</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label for="agent-passcode">SECURITY CLEARANCE PASSCODE (OPTIONAL)</label>
             <input type="password" id="agent-passcode" placeholder="••••••••" autocomplete="off" />
           </div>
 
           <button type="button" id="btn-login" class="btn-primary">
-            <span>INITIALIZE SECURITY CLEARANCE</span>
+            <span>AUTHENTICATE OPERATIVE CLEARANCE</span>
           </button>
         </div>
 
@@ -225,8 +188,9 @@
           <div class="op-card-accent"></div>
           <div class="op-card-details">
             <div class="op-badge-row">
-              <span class="op-status-badge">COVERT CLEARANCE</span>
-              <span class="op-clearance">TOP SECRET // BALIDAN</span>
+              <span class="op-status-badge" id="menu-agent-squadron">PARA SF</span>
+              <span class="op-clearance" id="menu-agent-rank">2ND LIEUTENANT</span>
+              <span class="op-score-badge" id="menu-agent-score">🏆 0 PTS</span>
             </div>
             <h2 class="op-callsign" id="menu-agent-name">AGENT DHURANDAR</h2>
             <p class="op-motto">“वीर भोग्य वसुंधरा” • THE BRAVE INHERIT THE EARTH</p>
@@ -249,8 +213,8 @@
           <button id="btn-menu-archives" class="tactical-nav-item">
             <div class="nav-number">02</div>
             <div class="nav-body">
-              <span class="nav-title">TARGET ARCHIVES</span>
-              <span class="nav-sub">Biometrics, 2D sprites & intel</span>
+              <span class="nav-title">TARGET RECON ARCHIVES</span>
+              <span class="nav-sub">CDN sprites, biometrics & UAPA intel</span>
             </div>
             <div class="nav-action-indicator">
               <span class="indicator-arrow">▶</span>
@@ -261,7 +225,18 @@
             <div class="nav-number">03</div>
             <div class="nav-body">
               <span class="nav-title">HALL OF HEROES</span>
-              <span class="nav-sub">In Memoriam • Indian Bravehearts</span>
+              <span class="nav-sub">In Memoriam • Real-time Tributes & Salutes</span>
+            </div>
+            <div class="nav-action-indicator">
+              <span class="indicator-arrow">▶</span>
+            </div>
+          </button>
+
+          <button id="btn-menu-leaderboard" class="tactical-nav-item leaderboard-highlight">
+            <div class="nav-number">04</div>
+            <div class="nav-body">
+              <span class="nav-title">TOP OPERATIVES LEADERBOARD</span>
+              <span class="nav-sub">National combat rankings & clearance tiers</span>
             </div>
             <div class="nav-action-indicator">
               <span class="indicator-arrow">▶</span>
@@ -269,7 +244,7 @@
           </button>
 
           <button id="btn-menu-logout" class="tactical-nav-item logout-item">
-            <div class="nav-number">04</div>
+            <div class="nav-number">05</div>
             <div class="nav-body">
               <span class="nav-title">LOCK TERMINAL</span>
               <span class="nav-sub">End classified session</span>
@@ -280,11 +255,10 @@
           </button>
         </div>
 
-        <!-- Bottom Telemetry Ticker -->
         <div class="menu-bottom-ticker">
           <span>LAT 34°08'N • LON 74°48'E</span>
           <span class="ticker-dot">•</span>
-          <span>MIL-SPEC v4.2</span>
+          <span>CONVEX CLOUD BACKEND</span>
         </div>
       </div>
     </section>
@@ -308,7 +282,7 @@
             We are transmitting the classified dossier of the high-value target.<br>
             Memorize their physical markers and locate them in the sector.<br>
             You have a 5-second operational window to confirm identity before they disappear.<br><br>
-            Best of luck.
+            Neutralizing this hostile earns combat points and boosts your clearance rank.
           </div>
         </div>
 
@@ -331,7 +305,7 @@
               <img id="dossier-face" src="/assets/target1_mugshot.jpg" alt="Target Face Mugshot" />
             </div>
             <div class="photo-frame fullbody-frame">
-              <span class="photo-label">2D COMBAT SPRITE</span>
+              <span class="photo-label">2D CDN SPRITE</span>
               <img id="dossier-body" src="/assets/target1_body.jpg" alt="Target Full Body Sprite" />
             </div>
           </div>
@@ -377,29 +351,26 @@
 
     <!-- SCREEN 5: MISSION GAMEPLAY / 3D AR RECON ARENA -->
     <section id="screen-mission" class="screen">
-      <!-- 3D AR SPATIAL VIEWPORT CONTAINER -->
       <div id="spatial-viewport" class="spatial-viewport">
-        <!-- Live Mobile Camera Video Layer -->
         <video id="camera-feed" autoplay playsinline muted class="camera-video"></video>
-
-        <!-- Shutter Flash Effect Overlay -->
         <div id="shutter-flash" class="shutter-flash"></div>
       </div>
 
-      <!-- TACTICAL HUD OVERLAY -->
       <div class="hud-overlay">
-        <!-- Top HUD -->
         <div class="hud-header">
           <div class="hud-badge timer-badge">
             <span class="hud-label">TIME WINDOW:</span>
             <span id="mission-timer" class="timer-value">5.00s</span>
+          </div>
+          <div class="hud-badge hp-badge" id="hud-hp-badge">
+            <span class="hud-label">HOSTILE HP:</span>
+            <span id="hud-target-hp" class="timer-value" style="color: #00ff88; font-size: 13px;">100% [○○○○○]</span>
           </div>
           <div class="hud-badge status-badge" id="hud-status">
             SCANNING 3D HORIZON...
           </div>
         </div>
 
-        <!-- Center Sniper Reticle -->
         <div class="reticle-container">
           <div class="reticle-circle"></div>
           <div class="reticle-crosshair"></div>
@@ -407,24 +378,23 @@
           <div class="reticle-corner tr"></div>
           <div class="reticle-corner bl"></div>
           <div class="reticle-corner br"></div>
-          <div id="lockon-indicator" class="lockon-indicator">⚡ TARGET IN CROSSHAIRS</div>
+          <div id="lockon-indicator" class="lockon-indicator">⚡ TARGET IN CROSSHAIRS // TAP TO FIRE!</div>
         </div>
 
-        <!-- Bottom Compass / Sensor Info -->
         <div class="hud-bottom-info">
           <div class="bearing-radar">
             <span>AZIMUTH: <b id="radar-azimuth">0°</b></span>
             <span id="radar-distance">RANGE: SCANNING</span>
           </div>
-          <p class="mobile-hint">Rotate phone or drag screen in 360° to locate target</p>
+          <p class="mobile-hint">Rotate phone to align crosshairs • Tap screen or FIRE button repeatedly to eliminate</p>
         </div>
 
-        <!-- Controls: Big Shutter Button & Abort -->
         <div class="hud-controls">
           <button id="btn-camera-toggle" class="camera-switch-btn" title="Toggle Live AR Camera">📷 AR Cam</button>
-          <button id="btn-shutter" class="shutter-btn" aria-label="Take Photo">
-            <div class="shutter-inner">
-              <span class="shutter-icon">📸</span>
+          <button id="btn-fire" class="fire-btn" aria-label="Fire Gun">
+            <div class="fire-inner">
+              <span class="fire-icon">🎯</span>
+              <span class="fire-text">FIRE (5 SHOTS)</span>
             </div>
           </button>
           <button id="btn-abort-mission" class="camera-switch-btn abort-btn">✕ Abort</button>
@@ -435,17 +405,30 @@
     <!-- SCREEN 6: MISSION DEBRIEF & IN MEMORIAM -->
     <section id="screen-result" class="screen">
       <div class="result-card">
-        <!-- Result Header -->
         <div id="result-header" class="result-header success">
           <div class="result-badge" id="result-badge">MISSION ACCOMPLISHED // THREAT NEUTRALIZED</div>
           <h2 class="result-title" id="result-title">GOOD JOB AGENT — NEVER FORGET</h2>
           <p class="result-subtitle" id="result-subtitle">Target successfully acquired and documented.</p>
         </div>
 
+        <!-- Combat Score Card -->
+        <div class="score-card" id="result-score-card">
+          <div class="score-main">
+            <span class="score-label">COMBAT SCORE EARNED</span>
+            <span class="score-value" id="result-score-val">+1,500 PTS</span>
+          </div>
+          <div class="score-details" id="result-score-breakdown">
+            Base: 1,000 • Speed Bonus: +500 • Accuracy: 100%
+          </div>
+          <div class="rank-promo-badge" id="result-rank-promo" style="display: none;">
+            🎖️ PROMOTED TO MAJOR!
+          </div>
+        </div>
+
         <!-- Captured Recon Evidence -->
         <div class="evidence-strip">
           <div class="evidence-box">
-            <span class="evidence-label">CONFIRMED PHOTO EVIDENCE</span>
+            <span class="evidence-label">CONFIRMED PHOTO EVIDENCE // CONVEX TELEMETRY</span>
             <img id="result-evidence-img" src="/assets/target1_mugshot.jpg" alt="Captured Target Recon" />
           </div>
         </div>
@@ -469,6 +452,7 @@
                 <h4 id="hero-name" class="hero-name">Major Sandeep Unnikrishnan, AC</h4>
                 <div class="hero-rank-unit" id="hero-unit">Major • 51 SAG (NSG) / 7 Bihar</div>
                 <div class="hero-op" id="hero-op">Operation Black Tornado (26/11 Mumbai)</div>
+                <div class="hero-salutes-live" id="hero-salutes-count">🇮🇳 1,947 Salutes Recorded</div>
               </div>
             </div>
 
@@ -507,11 +491,11 @@
       <div class="archives-container">
         <div class="screen-title-bar">
           <h2>HOSTILE TARGET ARCHIVES</h2>
-          <p>CLASSIFIED THREAT INTELLIGENCE PROFILES</p>
+          <p>CLASSIFIED THREAT INTELLIGENCE PROFILES & CDN SPRITES</p>
         </div>
 
         <div id="archives-list" class="archives-grid">
-          <!-- Dynamically populated from targets dataset -->
+          <!-- Dynamically populated from Convex DB targets -->
         </div>
 
         <button id="btn-back-from-archives" class="btn-primary">
@@ -526,14 +510,45 @@
         <div class="screen-title-bar memorial-title-bar">
           <div class="tiranga-bar"></div>
           <h2>HALL OF HEROES</h2>
-          <p>SUPREME SACRIFICES IN THE LINE OF DUTY</p>
+          <p>SUPREME SACRIFICES IN THE LINE OF DUTY // LIVE TRIBUTES</p>
         </div>
 
         <div id="heroes-list" class="heroes-grid">
-          <!-- Dynamically populated from memorials dataset -->
+          <!-- Dynamically populated from Convex DB memorials -->
         </div>
 
         <button id="btn-back-from-heroes" class="btn-primary">
+          <span>◀ RETURN TO HQ MENU</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- SCREEN 9: TOP OPERATIVES LEADERBOARD -->
+    <section id="screen-leaderboard" class="screen">
+      <div class="leaderboard-container">
+        <div class="screen-title-bar">
+          <h2>TOP OPERATIVES // LEADERBOARD</h2>
+          <p>NATIONAL COVERT COMBAT RANKINGS</p>
+        </div>
+
+        <div class="leaderboard-card">
+          <table class="tactical-table">
+            <thead>
+              <tr>
+                <th>RANK</th>
+                <th>CALLSIGN</th>
+                <th>CLEARANCE</th>
+                <th>SCORE</th>
+                <th>ACCURACY</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-tbody">
+              <!-- Dynamically populated from Convex DB -->
+            </tbody>
+          </table>
+        </div>
+
+        <button id="btn-back-from-leaderboard" class="btn-primary">
           <span>◀ RETURN TO HQ MENU</span>
         </button>
       </div>

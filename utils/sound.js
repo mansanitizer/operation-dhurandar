@@ -92,6 +92,94 @@ export const Sound = {
     }
   },
 
+  // Tactical Military Rifle Gunshot (Noise burst snap + sub-bass punch + echo tail)
+  gunshot() {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+
+      // 1. Supersonic Bullet Crack / White Noise Burst
+      const bufferSize = Math.floor(ctx.sampleRate * 0.15);
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.035));
+      }
+
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(1400, now);
+      noiseFilter.Q.setValueAtTime(1.2, now);
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.7, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+      whiteNoise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      whiteNoise.start(now);
+
+      // 2. Sub-Bass Powder Explosion Punch
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 0.18);
+
+      oscGain.gain.setValueAtTime(0.9, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      osc.connect(oscGain);
+      oscGain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.22);
+
+      // 3. Metallic Ejection Click
+      setTimeout(() => {
+        if (!ctx) return;
+        const clickOsc = ctx.createOscillator();
+        const clickGain = ctx.createGain();
+        clickOsc.type = 'square';
+        clickOsc.frequency.setValueAtTime(2400, ctx.currentTime);
+        clickGain.gain.setValueAtTime(0.12, ctx.currentTime);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.025);
+        clickOsc.connect(clickGain);
+        clickGain.connect(ctx.destination);
+        clickOsc.start();
+        clickOsc.stop(ctx.currentTime + 0.025);
+      }, 70);
+    } catch (e) {
+      console.warn(e);
+    }
+  },
+
+  // Hit impact confirmation sound
+  hitImpact() {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(450, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.4, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.08);
+    } catch (e) {
+      console.warn(e);
+    }
+  },
+
   // 5-second countdown urgency tick
   countdownTick(secondsLeft) {
     const pitch = 600 + (5 - secondsLeft) * 150;

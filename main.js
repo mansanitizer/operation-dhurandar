@@ -1,5 +1,6 @@
-import { targets } from './data/targets.js';
-import { memorials } from './data/memorials.js';
+import { ConvexService } from './utils/convexClient.js';
+import { targets as fallbackTargets } from './data/targets.js';
+import { memorials as fallbackMemorials } from './data/memorials.js';
 import { Sound } from './utils/sound.js';
 import { arEngine } from './utils/arEngine.js';
 
@@ -7,16 +8,23 @@ import { arEngine } from './utils/arEngine.js';
 const state = {
   currentScreen: 'screen-auth',
   agentName: 'AGENT DHURANDAR',
+  agentRank: '2nd Lieutenant',
+  agentScore: 0,
+  agentSquadron: 'PARA SF',
   targetIndex: 0,
   memorialIndex: 0,
   soundEnabled: true,
   
+  // Datasets (Loaded from Convex DB with local fallbacks)
+  targetsList: fallbackTargets,
+  memorialsList: fallbackMemorials,
+
   // Mission & AR State
   arInitialized: false,
   missionTimerInterval: null,
   timeLeft: 5.0,
   isTargetLocked: false,
-  capturedEvidence: null
+  capturedEvidence: null,
 };
 
 // --- DOM ELEMENTS ---
@@ -28,7 +36,8 @@ const screens = {
   mission: document.getElementById('screen-mission'),
   result: document.getElementById('screen-result'),
   archives: document.getElementById('screen-archives'),
-  heroes: document.getElementById('screen-heroes')
+  heroes: document.getElementById('screen-heroes'),
+  leaderboard: document.getElementById('screen-leaderboard'),
 };
 
 // --- SOUND WRAPPER ---
@@ -51,43 +60,76 @@ function showScreen(screenKey) {
 
 // --- PRELOAD ASSETS ---
 function preloadGameAssets() {
-  targets.forEach(t => {
-    const img1 = new Image();
-    img1.src = t.bodySprite;
-    const img2 = new Image();
-    img2.src = t.faceImage;
+  state.targetsList.forEach(t => {
+    if (t.bodySprite) {
+      const img1 = new Image();
+      img1.src = t.bodySprite;
+    }
+    if (t.faceImage) {
+      const img2 = new Image();
+      img2.src = t.faceImage;
+    }
   });
-  memorials.forEach(m => {
-    const img = new Image();
-    img.src = m.image;
+  state.memorialsList.forEach(m => {
+    if (m.image) {
+      const img = new Image();
+      img.src = m.image;
+    }
   });
 }
 
-// --- INITIALIZE APPLICATION ---
-function init() {
+// --- INITIALIZE APPLICATION & CONVEX SYNC ---
+async function init() {
+  // 1. Fetch initial targets & memorials from Convex DB
+  try {
+    const dbTargets = await ConvexService.getTargets();
+    if (dbTargets && dbTargets.length > 0) state.targetsList = dbTargets;
+
+    const dbMemorials = await ConvexService.getMemorials();
+    if (dbMemorials && dbMemorials.length > 0) state.memorialsList = dbMemorials;
+  } catch (e) {
+    console.warn("Initial Convex DB fetch fallback:", e);
+  }
+
   preloadGameAssets();
 
-  // 1. Audio Toggle
-  const btnSound = document.getElementById('btn-sound-toggle');
-  btnSound.addEventListener('click', () => {
-    state.soundEnabled = !state.soundEnabled;
-    btnSound.textContent = state.soundEnabled ? '🔊' : '🔇';
-    if (state.soundEnabled) playSound('beep', 900);
-  });
+  // 2. Setup Real-time Subscriptions (Ops Feed & Memorials)
+  setupConvexSubscriptions();
 
-  // 2. Screen 1: Auth Button & Enter Key Handling
+  // 3. Audio Toggle
+  const btnSound = document.getElementById('btn-sound-toggle');
+  if (btnSound) {
+    btnSound.addEventListener('click', () => {
+      state.soundEnabled = !state.soundEnabled;
+      btnSound.textContent = state.soundEnabled ? '🔊' : '🔇';
+      if (state.soundEnabled) playSound('beep', 900);
+    });
+  }
+
+  // 4. Screen 1: Auth Button & Enter Key Handling
   const btnLogin = document.getElementById('btn-login');
   const nameInput = document.getElementById('agent-name');
   const passInput = document.getElementById('agent-passcode');
+  const squadronInput = document.getElementById('agent-squadron');
 
-  const doLogin = () => {
+  const doLogin = async () => {
     const nameVal = nameInput ? nameInput.value.trim() : '';
-    if (nameVal) {
-      state.agentName = nameVal.toUpperCase();
-    } else {
-      state.agentName = 'AGENT DHURANDAR';
-    }
+    const passVal = passInput ? passInput.value.trim() : '';
+    const squadVal = squadronInput ? squadronInput.value : 'PARA SF';
+
+    state.agentName = nameVal ? nameVal.toUpperCase() : 'AGENT DHURANDAR';
+    state.agentSquadron = squadVal;
+
     playSound('beep', 1000);
+
+    // Authenticate with Convex DB
+    const authRes = await ConvexService.loginOrRegister(state.agentName, passVal, squadVal);
+    if (authRes && authRes.agent) {
+      state.agentRank = authRes.agent.clearanceRank || '2nd Lieutenant';
+      state.agentScore = authRes.agent.totalScore || 0;
+      state.agentSquadron = authRes.agent.squadron || squadVal;
+    }
+
     loadMainMenuScreen();
   };
 
@@ -110,100 +152,167 @@ function init() {
     }
   });
 
-  // 3. Screen 2: Main Menu Navigation
-  document.getElementById('btn-menu-campaign').addEventListener('click', () => {
+  // 5. Screen 2: Main Menu Navigation
+  document.getElementById('btn-menu-campaign')?.addEventListener('click', () => {
     playSound('beep', 850);
     loadBriefingScreen();
   });
 
-  document.getElementById('btn-menu-archives').addEventListener('click', () => {
+  document.getElementById('btn-menu-archives')?.addEventListener('click', () => {
     playSound('beep', 800);
     loadArchivesScreen();
   });
 
-  document.getElementById('btn-menu-heroes').addEventListener('click', () => {
+  document.getElementById('btn-menu-heroes')?.addEventListener('click', () => {
     playSound('tributeChime');
     loadHeroesScreen();
   });
 
-  document.getElementById('btn-menu-logout').addEventListener('click', () => {
+  document.getElementById('btn-menu-leaderboard')?.addEventListener('click', () => {
+    playSound('beep', 950);
+    loadLeaderboardScreen();
+  });
+
+  document.getElementById('btn-menu-logout')?.addEventListener('click', () => {
     playSound('beep', 500);
     showScreen('auth');
   });
 
-  // 4. Back Buttons
-  document.getElementById('btn-back-from-archives').addEventListener('click', () => {
+  // 6. Back Buttons
+  document.getElementById('btn-back-from-archives')?.addEventListener('click', () => {
     playSound('beep', 700);
     showScreen('menu');
   });
 
-  document.getElementById('btn-back-from-heroes').addEventListener('click', () => {
+  document.getElementById('btn-back-from-heroes')?.addEventListener('click', () => {
     playSound('beep', 700);
     showScreen('menu');
   });
 
-  document.getElementById('btn-back-to-menu-from-dossier').addEventListener('click', () => {
+  document.getElementById('btn-back-from-leaderboard')?.addEventListener('click', () => {
     playSound('beep', 700);
     showScreen('menu');
   });
 
-  document.getElementById('btn-result-menu').addEventListener('click', () => {
+  document.getElementById('btn-back-to-menu-from-dossier')?.addEventListener('click', () => {
     playSound('beep', 700);
     showScreen('menu');
   });
 
-  document.getElementById('btn-abort-mission').addEventListener('click', () => {
+  document.getElementById('btn-result-menu')?.addEventListener('click', () => {
+    playSound('beep', 700);
+    loadMainMenuScreen();
+  });
+
+  document.getElementById('btn-abort-mission')?.addEventListener('click', () => {
     playSound('beep', 500);
     clearInterval(state.missionTimerInterval);
     arEngine.stop();
     showScreen('menu');
   });
 
-  // 5. Briefing & Dossier
-  document.getElementById('btn-open-dossier').addEventListener('click', () => {
+  // 7. Briefing & Dossier
+  document.getElementById('btn-open-dossier')?.addEventListener('click', () => {
     playSound('beep', 850);
     loadDossierScreen();
   });
 
-  document.getElementById('btn-start-mission').addEventListener('click', async () => {
+  document.getElementById('btn-start-mission')?.addEventListener('click', async () => {
     playSound('beep', 1200);
     await start3DAR();
   });
 
-  // 6. Camera Switch & Shutter
-  document.getElementById('btn-camera-toggle').addEventListener('click', async () => {
+  // 8. Camera Switch & Firing Trigger
+  document.getElementById('btn-camera-toggle')?.addEventListener('click', async () => {
     playSound('beep', 1100);
     await arEngine.requestPermissions();
   });
 
-  document.getElementById('btn-shutter').addEventListener('click', handleShutterCapture);
+  const btnFire = document.getElementById('btn-fire');
+  if (btnFire) {
+    btnFire.addEventListener('click', handleGunshotFire);
+    btnFire.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handleGunshotFire();
+    });
+  }
 
-  // 7. Result Screen Loops
-  document.getElementById('btn-next-mission').addEventListener('click', () => {
+  // Also allow tapping on the 3D viewport to fire
+  document.getElementById('spatial-viewport')?.addEventListener('pointerdown', (e) => {
+    // Only fire if clicking outside controls
+    if (!e.target.closest('.hud-controls') && state.currentScreen === 'mission') {
+      handleGunshotFire();
+    }
+  });
+
+  // 9. Result Screen Loops & Salute
+  document.getElementById('btn-next-mission')?.addEventListener('click', () => {
     playSound('beep', 800);
-    state.targetIndex = (state.targetIndex + 1) % targets.length;
-    state.memorialIndex = (state.memorialIndex + 1) % memorials.length;
+    state.targetIndex = (state.targetIndex + 1) % state.targetsList.length;
+    state.memorialIndex = (state.memorialIndex + 1) % state.memorialsList.length;
     loadBriefingScreen();
   });
 
-  document.getElementById('btn-replay').addEventListener('click', () => {
+  document.getElementById('btn-replay')?.addEventListener('click', () => {
     playSound('beep', 800);
     loadDossierScreen();
   });
 
-  document.getElementById('btn-salute').addEventListener('click', () => {
+  document.getElementById('btn-salute')?.addEventListener('click', async () => {
     playSound('tributeChime');
     const saluteBtn = document.getElementById('btn-salute');
     const saluteText = document.getElementById('salute-text');
+    const curMem = state.memorialsList[state.memorialIndex];
+
     saluteText.textContent = 'SALUTED WITH HIGHEST HONORS 🇮🇳';
-    saluteBtn.style.background = 'rgba(255, 153, 51, 0.3)';
-    saluteBtn.style.borderColor = '#00ff88';
+    if (saluteBtn) {
+      saluteBtn.style.background = 'rgba(255, 153, 51, 0.3)';
+      saluteBtn.style.borderColor = '#00ff88';
+    }
+
+    if (curMem) {
+      const res = await ConvexService.recordSalute(curMem.id, state.agentName);
+      if (res && res.salutesCount) {
+        curMem.salutesCount = res.salutesCount;
+        const liveElem = document.getElementById('hero-salutes-count');
+        if (liveElem) liveElem.textContent = `🇮🇳 ${res.salutesCount.toLocaleString()} Salutes Recorded`;
+      }
+    }
+  });
+}
+
+// --- CONVEX REAL-TIME SUBSCRIPTIONS ---
+function setupConvexSubscriptions() {
+  // 1. Live Ops Ticker
+  ConvexService.subscribeToFeed((events) => {
+    if (events && events.length > 0) {
+      const latest = events[0];
+      const tickerElem = document.getElementById('ticker-text');
+      if (tickerElem) {
+        tickerElem.textContent = `${latest.headline} — ${latest.detail}`;
+      }
+    }
+  });
+
+  // 2. Real-time Memorials Tribute sync
+  ConvexService.subscribeToMemorials((memorials) => {
+    if (memorials && memorials.length > 0) {
+      state.memorialsList = memorials;
+      const curMem = memorials[state.memorialIndex];
+      if (curMem) {
+        const liveElem = document.getElementById('hero-salutes-count');
+        if (liveElem) liveElem.textContent = `🇮🇳 ${(curMem.salutesCount || 1947).toLocaleString()} Salutes Recorded`;
+      }
+    }
   });
 }
 
 // --- SCREEN LOADERS ---
 function loadMainMenuScreen() {
   document.getElementById('menu-agent-name').textContent = state.agentName;
+  document.getElementById('menu-agent-rank').textContent = state.agentRank.toUpperCase();
+  document.getElementById('menu-agent-score').textContent = `🏆 ${state.agentScore.toLocaleString()} PTS`;
+  document.getElementById('menu-agent-squadron').textContent = state.agentSquadron;
   showScreen('menu');
 }
 
@@ -213,7 +322,8 @@ function loadBriefingScreen() {
 }
 
 function loadDossierScreen() {
-  const currentTarget = targets[state.targetIndex];
+  const currentTarget = state.targetsList[state.targetIndex];
+  if (!currentTarget) return;
   
   document.getElementById('dossier-face').src = currentTarget.faceImage;
   document.getElementById('dossier-body').src = currentTarget.bodySprite;
@@ -229,9 +339,10 @@ function loadDossierScreen() {
 
 function loadArchivesScreen() {
   const container = document.getElementById('archives-list');
+  if (!container) return;
   container.innerHTML = '';
 
-  targets.forEach((target) => {
+  state.targetsList.forEach((target) => {
     const card = document.createElement('div');
     card.className = 'archive-card';
     card.innerHTML = `
@@ -241,6 +352,7 @@ function loadArchivesScreen() {
         <h3>${target.codename} (${target.name})</h3>
         <p class="archive-desc"><b>Role:</b> ${target.role}</p>
         <p class="archive-desc"><b>Last Seen:</b> ${target.lastSeen}</p>
+        ${target.gazetteRef ? `<p class="archive-desc" style="color: var(--accent-gold);"><b>UAPA Ref:</b> ${target.gazetteRef}</p>` : ''}
       </div>
     `;
     container.appendChild(card);
@@ -251,9 +363,10 @@ function loadArchivesScreen() {
 
 function loadHeroesScreen() {
   const container = document.getElementById('heroes-list');
+  if (!container) return;
   container.innerHTML = '';
 
-  memorials.forEach((hero) => {
+  state.memorialsList.forEach((hero) => {
     const card = document.createElement('div');
     card.className = 'hero-gallery-card';
     card.innerHTML = `
@@ -264,12 +377,49 @@ function loadHeroesScreen() {
         <p class="hero-gallery-desc"><b>Unit:</b> ${hero.unit}</p>
         <p class="hero-gallery-desc"><b>Action:</b> ${hero.operation}</p>
         <p class="hero-gallery-desc" style="font-style: italic; color: #fff;">${hero.quote}</p>
+        <span class="hero-salutes-live">🇮🇳 ${(hero.salutesCount || 0).toLocaleString()} National Salutes</span>
       </div>
     `;
     container.appendChild(card);
   });
 
   showScreen('heroes');
+}
+
+async function loadLeaderboardScreen() {
+  const tbody = document.getElementById('leaderboard-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--accent-cyan); padding: 16px;">FETCHING SATELLITE TELEMETRY...</td></tr>';
+
+  showScreen('leaderboard');
+
+  const agents = await ConvexService.getLeaderboard(25);
+  tbody.innerHTML = '';
+
+  if (!agents || agents.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td class="rank-num">01</td>
+        <td class="table-callsign">${state.agentName}</td>
+        <td>${state.agentRank}</td>
+        <td class="table-score">${state.agentScore} PTS</td>
+        <td class="table-accuracy">100%</td>
+      </tr>
+    `;
+    return;
+  }
+
+  agents.forEach((ag) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="rank-num">#${ag.rankNumber}</td>
+      <td class="table-callsign">${ag.callsign} <span style="font-size: 8px; color: var(--text-muted);">(${ag.squadron || 'PARA SF'})</span></td>
+      <td>${ag.clearanceRank}</td>
+      <td class="table-score">${ag.totalScore.toLocaleString()} PTS</td>
+      <td class="table-accuracy">${ag.accuracy}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 // --- 3D AR MISSION INITIALIZATION ---
@@ -279,16 +429,13 @@ async function start3DAR() {
   const viewport = document.getElementById('spatial-viewport');
   const videoElem = document.getElementById('camera-feed');
 
-  // Request Permissions (Camera & iOS DeviceOrientation)
   await arEngine.requestPermissions();
 
-  // Initialize Canvas AR layer if not done
   if (!state.arInitialized) {
     arEngine.init(viewport, videoElem, handleARTelemetry);
     state.arInitialized = true;
   }
 
-  // Reset Mission & Hunting State
   state.missionState = 'HUNTING';
   state.timerStarted = false;
   state.timeLeft = 5.0;
@@ -296,7 +443,6 @@ async function start3DAR() {
   if (state.missionTimerInterval) clearInterval(state.missionTimerInterval);
   if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
 
-  // Set HUD to Hunting Mode
   const timerElem = document.getElementById('mission-timer');
   timerElem.textContent = 'STANDBY (HUNTING)';
   timerElem.style.color = '#00f2fe';
@@ -306,20 +452,16 @@ async function start3DAR() {
   statusBadge.style.borderColor = 'rgba(0, 242, 254, 0.4)';
   statusBadge.style.color = '#00f2fe';
 
-  // Periodic ambient radar sweep pulse during hunting
   playSound('radarPing', 900);
 
-  // Dynamic Spawning Trigger: Hostile appears after 3.5 to 7.0 seconds of hunting
   const huntDelay = 3500 + Math.random() * 3500;
   state.spawnTimeout = setTimeout(() => {
     if (state.currentScreen === 'mission' && !state.timerStarted) {
       state.missionState = 'NEARBY';
       
-      // Spawn target in 3D physical room space (offset from player view)
-      const currentTarget = targets[state.targetIndex];
+      const currentTarget = state.targetsList[state.targetIndex];
       arEngine.spawnTarget(currentTarget.bodySprite);
 
-      // Proximity Alert Audio & Visuals
       playSound('radarPing', 1500);
       statusBadge.textContent = '⚠️ PROXIMITY ALERT: HOSTILE IN SECTOR — LOCATE NOW!';
       statusBadge.style.borderColor = '#ff9933';
@@ -365,71 +507,125 @@ function start5SecondWindow() {
 
 // Telemetry Callback from AR Engine
 function handleARTelemetry(data) {
-  const { isInViewfinder, isLocked, distance, azimuth, directionHint } = data;
+  const { isInViewfinder, isLocked, distance, azimuth, directionHint, health = 100, hits = 0 } = data;
   state.isTargetLocked = isLocked;
 
-  // Real-time Direction Pointer & Range
   const radarAzimuth = document.getElementById('radar-azimuth');
-  radarAzimuth.textContent = directionHint || `${azimuth}°`;
-  if (directionHint && directionHint.includes('TURN')) {
-    radarAzimuth.style.color = '#ff9933';
-  } else {
-    radarAzimuth.style.color = '#00ff88';
+  if (radarAzimuth) {
+    radarAzimuth.textContent = directionHint || `${azimuth}°`;
+    radarAzimuth.style.color = (directionHint && directionHint.includes('TURN')) ? '#ff9933' : '#00ff88';
   }
 
-  document.getElementById('radar-distance').textContent = distance > 0 ? `RANGE: ${distance}m` : 'RANGE: SCANNING';
+  const radarDist = document.getElementById('radar-distance');
+  if (radarDist) {
+    radarDist.textContent = distance > 0 ? `RANGE: ${distance}m` : 'RANGE: SCANNING';
+  }
+
+  // Update live HP readout in HUD
+  const hpElem = document.getElementById('hud-target-hp');
+  if (hpElem) {
+    const hitPips = '●'.repeat(hits) + '○'.repeat(Math.max(0, 5 - hits));
+    hpElem.textContent = `${health}% [${hitPips}]`;
+    hpElem.style.color = health > 40 ? '#00ff88' : '#ff334b';
+  }
 
   const lockonIndicator = document.getElementById('lockon-indicator');
   const statusBadge = document.getElementById('hud-status');
 
-  // Trigger 5-Second Window when target FIRST enters Viewfinder
   if (isInViewfinder && !state.timerStarted && state.currentScreen === 'mission') {
     start5SecondWindow();
   }
 
   if (isLocked) {
-    lockonIndicator.classList.add('active');
-    statusBadge.textContent = '⚡ TARGET LOCKED IN CROSSHAIRS!';
-    statusBadge.style.borderColor = '#00ff88';
-    statusBadge.style.color = '#00ff88';
+    if (lockonIndicator) lockonIndicator.classList.add('active');
+    if (statusBadge) {
+      statusBadge.textContent = '⚡ LOCKED ON HOSTILE // TAP TO FIRE!';
+      statusBadge.style.borderColor = '#00ff88';
+      statusBadge.style.color = '#00ff88';
+    }
   } else {
-    lockonIndicator.classList.remove('active');
-    if (state.timerStarted) {
-      statusBadge.textContent = '🚨 TARGET IN SIGHT — ALIGN CROSSHAIRS!';
+    if (lockonIndicator) lockonIndicator.classList.remove('active');
+    if (state.timerStarted && statusBadge) {
+      statusBadge.textContent = '🚨 TARGET IN SIGHT — ALIGN & SHOOT!';
       statusBadge.style.borderColor = '#ff334b';
       statusBadge.style.color = '#ff334b';
     }
   }
 }
 
-// Shutter Snapshot Capture
-function handleShutterCapture() {
-  if (state.timeLeft <= 0) return;
+// Gunshot Firing Trigger (Tap repeatedly to eliminate target)
+function handleGunshotFire() {
+  if (state.currentScreen !== 'mission') return;
+  if (state.timeLeft <= 0 && state.timerStarted) return;
 
-  playSound('shutter');
+  // 1. Play Tactical Gunshot Sound
+  playSound('gunshot');
 
-  // Flash Effect
+  // 2. Gunshot Muzzle Flash & Screen Recoil Shake
+  const viewport = document.getElementById('spatial-viewport');
+  if (viewport) {
+    viewport.classList.remove('screen-recoil');
+    void viewport.offsetWidth; // Trigger reflow
+    viewport.classList.add('screen-recoil');
+  }
+
   const flash = document.getElementById('shutter-flash');
-  flash.classList.add('flash');
-  setTimeout(() => flash.classList.remove('flash'), 350);
+  if (flash) {
+    flash.classList.add('flash');
+    setTimeout(() => flash.classList.remove('flash'), 120);
+  }
 
-  clearInterval(state.missionTimerInterval);
+  // 3. Register Shot in AR Engine
+  const result = arEngine.shoot();
 
-  // Capture Photo Snapshot
-  state.capturedEvidence = arEngine.captureEvidencePhoto();
+  const statusBadge = document.getElementById('hud-status');
+  const hpElem = document.getElementById('hud-target-hp');
 
-  // Evaluate Lockon
-  if (state.isTargetLocked) {
-    handleMissionOutcome(true, 'CAPTURED');
+  if (result.hit) {
+    // Bullet impact sound confirmation
+    playSound('hitImpact');
+
+    if (hpElem) {
+      const hitPips = '●'.repeat(result.hits) + '○'.repeat(Math.max(0, 5 - result.hits));
+      hpElem.textContent = `${result.remainingHp}% [${hitPips}]`;
+      hpElem.style.color = result.remainingHp > 40 ? '#00ff88' : '#ff334b';
+    }
+
+    if (statusBadge) {
+      statusBadge.textContent = `💥 DIRECT HIT! [${result.hits}/5 SHOTS LANDED]`;
+      statusBadge.style.borderColor = '#ff9933';
+      statusBadge.style.color = '#ff9933';
+    }
+
+    // Check if target is completely neutralized (5 hits)
+    if (result.isEliminated) {
+      if (statusBadge) {
+        statusBadge.textContent = '☠️ HOSTILE NEUTRALIZED // MISSION ACCOMPLISHED';
+        statusBadge.style.borderColor = '#00ff88';
+        statusBadge.style.color = '#00ff88';
+      }
+
+      clearInterval(state.missionTimerInterval);
+      state.capturedEvidence = arEngine.captureEvidencePhoto();
+
+      setTimeout(() => {
+        handleMissionOutcome(true, 'ELIMINATED');
+      }, 400);
+    }
   } else {
-    handleMissionOutcome(false, 'OFF_TARGET');
+    // Shot missed
+    if (statusBadge) {
+      statusBadge.textContent = '⚠️ SHOT MISSED! ALIGN CROSSHAIR WITH HOSTILE';
+      statusBadge.style.borderColor = '#ff334b';
+      statusBadge.style.color = '#ff334b';
+    }
   }
 }
 
-// --- MISSION DEBRIEF & IN MEMORIAM ---
-function handleMissionOutcome(isSuccess, reason) {
-  const currentTarget = targets[state.targetIndex];
-  const currentMemorial = memorials[state.memorialIndex];
+// --- MISSION DEBRIEF & CONVEX SCORING SYNC ---
+async function handleMissionOutcome(isSuccess, reason) {
+  const currentTarget = state.targetsList[state.targetIndex];
+  const currentMemorial = state.memorialsList[state.memorialIndex];
 
   const resultHeader = document.getElementById('result-header');
   const resultBadge = document.getElementById('result-badge');
@@ -437,14 +633,13 @@ function handleMissionOutcome(isSuccess, reason) {
   const resultSubtitle = document.getElementById('result-subtitle');
   const evidenceImg = document.getElementById('result-evidence-img');
 
-  // Set Evidence Photo
   evidenceImg.src = state.capturedEvidence || currentTarget.faceImage;
 
   if (isSuccess) {
     resultHeader.className = 'result-header success';
     resultBadge.textContent = 'MISSION ACCOMPLISHED // THREAT NEUTRALIZED';
     resultTitle.textContent = 'GOOD JOB AGENT — NEVER FORGET';
-    resultSubtitle.textContent = `Target ${currentTarget.codename} successfully identified and documented in 3D AR space within the operational window.`;
+    resultSubtitle.textContent = `Target ${currentTarget.codename} successfully identified and documented in 3D AR space.`;
     playSound('tributeChime');
   } else {
     resultHeader.className = 'result-header failed';
@@ -456,21 +651,60 @@ function handleMissionOutcome(isSuccess, reason) {
     playSound('beep', 300, 'sawtooth');
   }
 
+  // Record outcome and calculate score in Convex DB
+  const outcomeData = await ConvexService.recordMissionOutcome({
+    agentCallsign: state.agentName,
+    targetCodename: currentTarget.codename,
+    outcome: isSuccess ? 'SUCCESS' : 'FAILED',
+    reason,
+    timeRemaining: isSuccess ? state.timeLeft : 0,
+    evidencePhoto: state.capturedEvidence,
+  });
+
+  if (outcomeData) {
+    state.agentScore = outcomeData.totalScore || state.agentScore;
+    state.agentRank = outcomeData.clearanceRank || state.agentRank;
+
+    const scoreValElem = document.getElementById('result-score-val');
+    const scoreBreakdownElem = document.getElementById('result-score-breakdown');
+    const promoBadge = document.getElementById('result-rank-promo');
+
+    if (isSuccess) {
+      scoreValElem.textContent = `+${outcomeData.scoreEarned.toLocaleString()} PTS`;
+      scoreBreakdownElem.textContent = `Base: 1,000 • Speed Bonus: +${outcomeData.timeBonus} • Time Left: ${state.timeLeft.toFixed(2)}s`;
+    } else {
+      scoreValElem.textContent = `+0 PTS`;
+      scoreBreakdownElem.textContent = `Mission unfulfilled: ${reason}`;
+    }
+
+    if (outcomeData.promoted && promoBadge) {
+      promoBadge.style.display = 'block';
+      promoBadge.textContent = `🎖️ PROMOTED TO ${outcomeData.clearanceRank.toUpperCase()}!`;
+    } else if (promoBadge) {
+      promoBadge.style.display = 'none';
+    }
+  }
+
   // Populate In Memoriam Memorial Hero Card
-  document.getElementById('hero-image').src = currentMemorial.image;
-  document.getElementById('hero-name').textContent = currentMemorial.name;
-  document.getElementById('hero-unit').textContent = `${currentMemorial.rank} • ${currentMemorial.unit}`;
-  document.getElementById('hero-op').textContent = `${currentMemorial.operation} (${currentMemorial.dateOfMartyrdom})`;
-  document.getElementById('hero-decoration').textContent = currentMemorial.decoration.toUpperCase();
-  document.getElementById('hero-quote').textContent = currentMemorial.quote;
-  document.getElementById('hero-writeup').textContent = currentMemorial.writeUp;
+  if (currentMemorial) {
+    document.getElementById('hero-image').src = currentMemorial.image;
+    document.getElementById('hero-name').textContent = currentMemorial.name;
+    document.getElementById('hero-unit').textContent = `${currentMemorial.rank} • ${currentMemorial.unit}`;
+    document.getElementById('hero-op').textContent = `${currentMemorial.operation} (${currentMemorial.dateOfMartyrdom})`;
+    document.getElementById('hero-decoration').textContent = currentMemorial.decoration.toUpperCase();
+    document.getElementById('hero-quote').textContent = currentMemorial.quote;
+    document.getElementById('hero-writeup').textContent = currentMemorial.writeUp;
+    document.getElementById('hero-salutes-count').textContent = `🇮🇳 ${(currentMemorial.salutesCount || 1947).toLocaleString()} Salutes Recorded`;
+  }
 
   // Reset salute button
   const saluteBtn = document.getElementById('btn-salute');
   const saluteText = document.getElementById('salute-text');
   saluteText.textContent = 'PAY RESPECTS & SALUTE';
-  saluteBtn.style.background = 'rgba(255, 255, 255, 0.06)';
-  saluteBtn.style.borderColor = 'rgba(255, 153, 51, 0.6)';
+  if (saluteBtn) {
+    saluteBtn.style.background = 'rgba(255, 255, 255, 0.06)';
+    saluteBtn.style.borderColor = 'rgba(255, 153, 51, 0.6)';
+  }
 
   showScreen('result');
 }

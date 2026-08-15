@@ -221,6 +221,11 @@ class AREngine {
     this.target.altitude = current.pitch;
     this.target.distance = 3.8;
     this.target.isLoaded = false;
+    this.target.health = 100;
+    this.target.currentHits = 0;
+    this.target.maxHits = 5;
+    this.target.hitFlashUntil = 0;
+    this.target.sparks = [];
     this.isSpawned = true;
 
     const img = new Image();
@@ -233,6 +238,43 @@ class AREngine {
       console.warn('[AR] Target image fallback');
       this.target.isLoaded = true;
     };
+  }
+
+  // Register Gunshot on Target
+  shoot() {
+    if (!this.isSpawned) return { hit: false, reason: 'NO_TARGET' };
+
+    // Check if target is locked or in crosshair zone
+    const isHit = this.isLocked || this.isInViewfinder;
+
+    if (isHit) {
+      this.target.currentHits = Math.min(this.target.maxHits, (this.target.currentHits || 0) + 1);
+      this.target.health = Math.max(0, 100 - (this.target.currentHits * 20));
+      this.target.hitFlashUntil = Date.now() + 180;
+
+      // Spawn spark particles for bullet impact
+      for (let i = 0; i < 15; i++) {
+        this.target.sparks.push({
+          x: (Math.random() - 0.5) * 40,
+          y: (Math.random() - 0.5) * 60,
+          vx: (Math.random() - 0.5) * 12,
+          vy: (Math.random() - 0.5) * 12,
+          life: 1.0,
+          color: Math.random() > 0.4 ? '#ff9933' : '#ff334b'
+        });
+      }
+
+      const isEliminated = this.target.health <= 0;
+      return {
+        hit: true,
+        isEliminated,
+        remainingHp: this.target.health,
+        hits: this.target.currentHits,
+        maxHits: this.target.maxHits
+      };
+    }
+
+    return { hit: false, reason: 'OFF_TARGET' };
   }
 
   startLoop() {
@@ -265,6 +307,8 @@ class AREngine {
 
     // If target has not spawned yet, only emit sweep telemetry
     if (!this.isSpawned) {
+      this.isInViewfinder = false;
+      this.isLocked = false;
       if (this.onTelemetryUpdate) {
         this.onTelemetryUpdate({
           isSpawned: false,
@@ -272,6 +316,8 @@ class AREngine {
           isLocked: false,
           distance: 0,
           azimuth: 0,
+          health: 100,
+          hits: 0,
           directionHint: '📡 SWEEPING SECTOR...'
         });
       }
@@ -323,31 +369,79 @@ class AREngine {
         ctx.save();
         ctx.translate(screenX, screenY);
 
+        const isHitFlashing = Date.now() < (this.target.hitFlashUntil || 0);
+
         // 3D Threat Glow Ring
-        ctx.strokeStyle = isInViewfinder ? '#ff334b' : '#ff9933';
-        ctx.lineWidth = 3 * dpr;
+        ctx.strokeStyle = isHitFlashing ? '#ffffff' : (isInViewfinder ? '#ff334b' : '#ff9933');
+        ctx.lineWidth = (isHitFlashing ? 4.5 : 3) * dpr;
         ctx.beginPath();
         ctx.arc(0, 0, (spriteW / 2) + 16 * dpr, 0, Math.PI * 2);
         ctx.stroke();
 
+        // 3D HEALTH BAR (Top of Hostile)
+        const barW = 130 * dpr;
+        const barH = 10 * dpr;
+        const barY = -spriteH / 2 - 28 * dpr;
+        const hpPercent = Math.max(0, (this.target.health || 100) / 100);
+
+        // Bar Container Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(-barW / 2, barY, barW, barH);
+        ctx.strokeStyle = '#e5a93c';
+        ctx.lineWidth = 1 * dpr;
+        ctx.strokeRect(-barW / 2, barY, barW, barH);
+
+        // Bar Fill
+        ctx.fillStyle = hpPercent > 0.4 ? '#00ff88' : '#ff334b';
+        ctx.fillRect(-barW / 2 + 1 * dpr, barY + 1 * dpr, (barW - 2 * dpr) * hpPercent, barH - 2 * dpr);
+
+        // Health & Hit Pips Text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${8 * dpr}px monospace`;
+        ctx.textAlign = 'center';
+        const hitPips = '●'.repeat(this.target.currentHits || 0) + '○'.repeat(Math.max(0, 5 - (this.target.currentHits || 0)));
+        ctx.fillText(`HP: ${this.target.health}%  [${hitPips}]`, 0, barY - 4 * dpr);
+
         // Draw 3D Target Sprite or Silhouette Fallback
         if (this.target.isLoaded && this.target.image) {
+          if (isHitFlashing) {
+            ctx.filter = 'brightness(1.8) contrast(1.4) drop-shadow(0 0 15px #ff334b)';
+          }
           ctx.drawImage(this.target.image, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
+          ctx.filter = 'none';
         } else {
           // Tactical Silhouette
-          ctx.fillStyle = 'rgba(255, 51, 75, 0.4)';
+          ctx.fillStyle = isHitFlashing ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 51, 75, 0.4)';
           ctx.fillRect(-spriteW / 2, -spriteH / 2, spriteW, spriteH);
           ctx.strokeStyle = '#ff334b';
           ctx.strokeRect(-spriteW / 2, -spriteH / 2, spriteW, spriteH);
         }
 
+        // Draw Hit Sparks
+        if (this.target.sparks && this.target.sparks.length > 0) {
+          for (let i = this.target.sparks.length - 1; i >= 0; i--) {
+            const p = this.target.sparks[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 0.08;
+            if (p.life <= 0) {
+              this.target.sparks.splice(i, 1);
+              continue;
+            }
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x * dpr, p.y * dpr, 3 * p.life * dpr, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
         // 3D Hostile Label Tag
-        ctx.fillStyle = '#ff334b';
+        ctx.fillStyle = isHitFlashing ? '#ffffff' : '#ff334b';
         ctx.fillRect(-65 * dpr, spriteH / 2 + 6 * dpr, 130 * dpr, 22 * dpr);
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = isHitFlashing ? '#ff0000' : '#ffffff';
         ctx.font = `bold ${10 * dpr}px monospace`;
         ctx.textAlign = 'center';
-        ctx.fillText('HOSTILE TARGET', 0, spriteH / 2 + 21 * dpr);
+        ctx.fillText(isHitFlashing ? '💥 BULLET IMPACT!' : 'HOSTILE TARGET', 0, spriteH / 2 + 21 * dpr);
 
         ctx.restore();
 
@@ -359,14 +453,18 @@ class AREngine {
       }
     }
 
+    this.isInViewfinder = isInViewfinder;
     this.isLocked = isLocked;
 
     if (this.onTelemetryUpdate) {
       this.onTelemetryUpdate({
+        isSpawned: true,
         isInViewfinder,
         isLocked,
         distance: this.target.distance,
         azimuth: relativeDeg,
+        health: this.target.health || 100,
+        hits: this.target.currentHits || 0,
         directionHint
       });
     }
