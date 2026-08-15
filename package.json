@@ -1,0 +1,13 @@
+{
+  "name": "operation-dhurandar",
+  "version": "1.0.0",
+  "description": "Tactical Covert AR Web Game",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "devDependencies": {
+    "vite": "^8.2.1"
+  }
+}
