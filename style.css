@@ -18,7 +18,7 @@
   --text-muted: #8b949e;
   --font-display: 'Chakra Petch', -apple-system, sans-serif;
   --font-mono: 'Courier Prime', monospace;
-  --font-hindi: 'Tiro Devanagari Hindi', serif;
+  --font-hindi: 'Noto Sans Devanagari', 'Tiro Devanagari Hindi', 'Kohinoor Devanagari', 'Devanagari MT', serif;
   --font-sans: 'Inter', -apple-system, sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
