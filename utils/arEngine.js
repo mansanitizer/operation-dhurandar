@@ -305,6 +305,15 @@ class AREngine {
       }
 
       const isEliminated = this.target.health <= 0;
+      if (isEliminated) {
+        this.isSpawned = false;
+        this.target.isLoaded = false;
+        this.target.image = null;
+        if (this.ctx && this.canvas) {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+      }
+
       return {
         hit: true,
         isEliminated,
@@ -356,8 +365,8 @@ class AREngine {
           isLocked: false,
           distance: 0,
           azimuth: 0,
-          health: 100,
-          hits: 0,
+          health: 0,
+          hits: 5,
           directionHint: '📡 SWEEPING SECTOR...'
         });
       }

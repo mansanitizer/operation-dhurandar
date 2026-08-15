@@ -304,5 +304,44 @@ export const Sound = {
     } catch (e) {
       console.warn(e);
     }
+  },
+
+  // Hostile elimination death scream
+  deathScream(style = 'wilhelm') {
+    try {
+      const screamFiles = {
+        wilhelm: '/assets/audio/scream_wilhelm_original.wav',
+        dramatic: '/assets/audio/scream_dramatic.wav',
+        guttural: '/assets/audio/scream_guttural.wav',
+        tactical: '/assets/audio/scream_tactical.wav'
+      };
+
+      const audioSrc = screamFiles[style] || screamFiles.wilhelm;
+      const audio = new Audio(audioSrc);
+      audio.volume = 0.85;
+      audio.play().catch(() => {
+        this.proceduralScream();
+      });
+    } catch (e) {
+      this.proceduralScream();
+    }
+  },
+
+  proceduralScream() {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(520, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(95, ctx.currentTime + 0.85);
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.85);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.85);
+    } catch (e) {}
   }
 };

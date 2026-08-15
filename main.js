@@ -645,9 +645,9 @@ function handleARTelemetry(data) {
     radarDist.textContent = distance > 0 ? `RANGE: ${distance}m` : 'RANGE: SCANNING';
   }
 
-  // Update live HP readout in HUD
+  // Update live HP readout in HUD when target is actively spawned
   const hpElem = document.getElementById('hud-target-hp');
-  if (hpElem) {
+  if (hpElem && data.isSpawned) {
     const hitPips = '●'.repeat(hits) + '○'.repeat(Math.max(0, 5 - hits));
     hpElem.textContent = `${health}% [${hitPips}]`;
     hpElem.style.color = health > 40 ? '#00ff88' : '#ff334b';
@@ -723,6 +723,8 @@ function handleGunshotFire() {
 
     // Check if target is completely neutralized (5 hits)
     if (result.isEliminated) {
+      playSound('deathScream');
+
       if (state.gameMode === 'ROGUE') {
         // --- GO ROGUE CONTINUOUS MODE ---
         state.rogueStreak++;
@@ -741,7 +743,6 @@ function handleGunshotFire() {
           hpElem.style.color = '#ff334b';
         }
 
-        playSound('tributeChime');
         clearInterval(state.missionTimerInterval);
         if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
 
