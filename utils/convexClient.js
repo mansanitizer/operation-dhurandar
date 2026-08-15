@@ -99,8 +99,19 @@ export const ConvexService = {
     timeRemaining,
     evidencePhoto,
   }) {
+    const payload = {
+      agentCallsign: (agentCallsign || "AGENT DHURANDAR").trim().toUpperCase(),
+      targetCodename: (targetCodename || "VALI-1").trim(),
+      outcome: outcome || "SUCCESS",
+      reason: reason || "ELIMINATED",
+      timeRemaining: typeof timeRemaining === "number" ? Math.max(0, timeRemaining) : 0,
+    };
+    if (typeof evidencePhoto === "string" && evidencePhoto.length > 0) {
+      payload.evidencePhoto = evidencePhoto;
+    }
+
     if (!client) {
-      const score = outcome === "SUCCESS" ? 1000 + Math.round(timeRemaining * 200) : 0;
+      const score = outcome === "SUCCESS" ? 1000 + Math.round(payload.timeRemaining * 200) : 0;
       return {
         scoreEarned: score,
         totalScore: score,
@@ -109,14 +120,9 @@ export const ConvexService = {
       };
     }
     try {
-      return await client.mutation(api.missions.logMissionOutcome, {
-        agentCallsign,
-        targetCodename,
-        outcome,
-        reason,
-        timeRemaining,
-        evidencePhoto,
-      });
+      const res = await client.mutation(api.missions.logMissionOutcome, payload);
+      console.log("[CONVEX] Mission outcome logged successfully:", res);
+      return res;
     } catch (err) {
       console.error("[CONVEX] recordMissionOutcome error:", err);
       return null;

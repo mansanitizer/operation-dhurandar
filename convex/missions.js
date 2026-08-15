@@ -8,9 +8,9 @@ export const logMissionOutcome = mutation({
     agentCallsign: v.string(),
     targetCodename: v.string(),
     outcome: v.string(), // "SUCCESS" | "FAILED"
-    reason: v.string(),  // "CAPTURED" | "TIMEOUT" | "OFF_TARGET"
+    reason: v.string(),  // "ELIMINATED" | "TIMEOUT" | "OFF_TARGET" | "ABORTED"
     timeRemaining: v.number(),
-    evidencePhoto: v.optional(v.string()),
+    evidencePhoto: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const cleanCallsign = args.agentCallsign.trim().toUpperCase() || "AGENT DHURANDAR";

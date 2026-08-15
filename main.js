@@ -144,7 +144,6 @@ async function init() {
   const btnLogin = document.getElementById('btn-login');
   const nameInput = document.getElementById('agent-name');
   const passInput = document.getElementById('agent-passcode');
-  const squadronInput = document.getElementById('agent-squadron');
 
   // Restore cached operative profile from localStorage if present
   try {
@@ -152,12 +151,11 @@ async function init() {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.name && nameInput) nameInput.value = parsed.name;
-      if (parsed.squadron && squadronInput) squadronInput.value = parsed.squadron;
       if (parsed.name) {
         state.agentName = parsed.name;
         state.agentRank = parsed.rank || '2nd Lieutenant';
         state.agentScore = parsed.score || 0;
-        state.agentSquadron = parsed.squadron || 'PARA SF';
+        state.agentSquadron = 'PARA SF';
       }
     }
   } catch (e) {}
@@ -165,10 +163,10 @@ async function init() {
   const doLogin = async () => {
     const nameVal = nameInput ? nameInput.value.trim() : '';
     const passVal = passInput ? passInput.value.trim() : '';
-    const squadVal = squadronInput ? squadronInput.value : 'PARA SF';
+    const squadVal = 'PARA SF';
 
     state.agentName = nameVal ? nameVal.toUpperCase() : 'AGENT DHURANDAR';
-    state.agentSquadron = squadVal;
+    state.agentSquadron = 'PARA SF';
 
     playSound('beep', 1000);
 
@@ -179,7 +177,7 @@ async function init() {
         state.agentName = authRes.agent.callsign || state.agentName;
         state.agentRank = authRes.agent.clearanceRank || '2nd Lieutenant';
         state.agentScore = authRes.agent.totalScore || 0;
-        state.agentSquadron = authRes.agent.squadron || squadVal;
+        state.agentSquadron = authRes.agent.squadron || 'PARA SF';
       }
     } catch (err) {
       console.warn('[AUTH] Convex login fallback:', err);

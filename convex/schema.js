@@ -72,7 +72,7 @@ export default defineSchema({
     reason: v.string(),  // "CAPTURED" | "TIMEOUT" | "OFF_TARGET"
     scoreEarned: v.number(),
     timeRemaining: v.number(),
-    evidencePhoto: v.optional(v.string()), // Base64 or snapshot URL
+    evidencePhoto: v.optional(v.union(v.string(), v.null())), // Base64 or snapshot URL
     timestamp: v.number(),
   }).index("by_agent", ["agentCallsign"])
     .index("by_timestamp", ["timestamp"]),
