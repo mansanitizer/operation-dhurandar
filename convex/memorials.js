@@ -21,51 +21,69 @@ export const getById = query({
 });
 
 // Pay Tribute / Salute a braveheart
-export const payTribute = mutation({
+export const salute = mutation({
   args: {
     memorialId: v.string(),
     agentCallsign: v.string(),
     message: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const memorial = await ctx.db
+    const cleanCallsign = (args.agentCallsign || "AGENT DHURANDAR").trim().toUpperCase();
+    const now = Date.now();
+
+    // 1. Find memorial by slug
+    let memorial = await ctx.db
       .query("memorials")
       .withIndex("by_slug", (q) => q.eq("id", args.memorialId))
       .first();
 
-    if (!memorial) {
-      throw new Error(`Memorial with ID ${args.memorialId} not found.`);
+    let newSalutesCount = 1948;
+    if (memorial) {
+      newSalutesCount = (memorial.salutesCount || 0) + 1;
+      await ctx.db.patch(memorial._id, {
+        salutesCount: newSalutesCount,
+      });
     }
 
-    // Increment salutes count
-    await ctx.db.patch(memorial._id, {
-      salutesCount: memorial.salutesCount + 1,
-    });
-
-    // Record tribute
+    // 2. Record tribute
     const tributeId = await ctx.db.insert("tributes", {
       memorialId: args.memorialId,
-      agentCallsign: args.agentCallsign,
+      agentCallsign: cleanCallsign,
       message: args.message || "Saluted with Highest National Honors 🇮🇳",
-      timestamp: Date.now(),
+      timestamp: now,
     });
 
-    // Also push to Live Ops Feed
+    // 3. Increment agent salutesGiven count
+    const agent = await ctx.db
+      .query("agents")
+      .withIndex("by_callsign", (q) => q.eq("callsign", cleanCallsign))
+      .first();
+
+    if (agent) {
+      await ctx.db.patch(agent._id, {
+        salutesGiven: (agent.salutesGiven || 0) + 1,
+        lastActive: now,
+      });
+    }
+
+    // 4. Push to Live Ops Feed
     await ctx.db.insert("opsFeed", {
       type: "TRIBUTE",
-      agentCallsign: args.agentCallsign,
-      headline: `TRIBUTE PAID // ${memorial.name}`,
-      detail: `Agent ${args.agentCallsign} paid national homage to ${memorial.name} (${memorial.decoration}).`,
-      timestamp: Date.now(),
+      agentCallsign: cleanCallsign,
+      headline: `TRIBUTE PAID // ${memorial ? memorial.name : 'BRAVEHEART'}`,
+      detail: `Agent ${cleanCallsign} paid national homage with highest military honors.`,
+      timestamp: now,
     });
 
     return {
       status: "SUCCESS",
-      salutesCount: memorial.salutesCount + 1,
+      salutesCount: newSalutesCount,
       tributeId,
     };
   },
 });
+
+export const payTribute = salute;
 
 // Reset and seed all 16 Hall of Heroes memorials
 export const resetAndSeedMemorials = mutation({

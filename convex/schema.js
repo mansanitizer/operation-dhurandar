@@ -13,6 +13,7 @@ export default defineSchema({
     salutesGiven: v.number(),
     squadron: v.optional(v.string()), // "PARA SF", "NSG BLACK CATS", "MARCOS", "GARUD"
     badges: v.optional(v.array(v.string())),
+    eliminatedTargets: v.optional(v.array(v.string())), // Codenames of hostiles neutralized by this operative
     lastActive: v.number(),
   }).index("by_callsign", ["callsign"])
     .index("by_score", ["totalScore"]),

@@ -38,6 +38,7 @@ export const loginOrRegister = mutation({
       return {
         agent: {
           ...existing,
+          eliminatedTargets: existing.eliminatedTargets || [],
           lastActive: now,
         },
         isNew: false,
@@ -55,6 +56,7 @@ export const loginOrRegister = mutation({
       salutesGiven: 0,
       squadron: args.squadron || "PARA SF",
       badges: ["RECON READY"],
+      eliminatedTargets: [],
       lastActive: now,
     };
 

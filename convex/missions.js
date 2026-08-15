@@ -91,12 +91,18 @@ export const logMissionOutcome = mutation({
       updatedBadges.push("BALIDAN COMMENDATION");
     }
 
+    const currentEliminated = agent.eliminatedTargets || [];
+    const updatedEliminated = (args.outcome === "SUCCESS" && !currentEliminated.includes(args.targetCodename))
+      ? [...currentEliminated, args.targetCodename]
+      : currentEliminated;
+
     await ctx.db.patch(agent._id, {
       totalScore: newTotalScore,
       missionsCompleted: newMissionsCompleted,
       missionsFailed: newMissionsFailed,
       clearanceRank: newRank,
       badges: updatedBadges,
+      eliminatedTargets: updatedEliminated,
       lastActive: now,
     });
 
@@ -136,6 +142,7 @@ export const logMissionOutcome = mutation({
       totalScore: newTotalScore,
       clearanceRank: newRank,
       promoted: newRank !== previousRank,
+      eliminatedTargets: updatedEliminated,
       timeBonus: args.outcome === "SUCCESS" ? Math.round(Math.max(0, args.timeRemaining) * 200) : 0,
     };
   },

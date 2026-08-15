@@ -18,6 +18,7 @@ const state = {
   // Datasets (Loaded from Convex DB with local fallbacks)
   targetsList: fallbackTargets,
   memorialsList: fallbackMemorials,
+  eliminatedTargets: [], // Codenames of hostiles eliminated by this operative
 
   // Mission & AR State
   gameMode: 'CAMPAIGN', // 'CAMPAIGN' | 'ROGUE'
@@ -156,6 +157,7 @@ async function init() {
         state.agentRank = parsed.rank || '2nd Lieutenant';
         state.agentScore = parsed.score || 0;
         state.agentSquadron = 'PARA SF';
+        state.eliminatedTargets = parsed.eliminatedTargets || [];
       }
     }
   } catch (e) {}
@@ -178,6 +180,7 @@ async function init() {
         state.agentRank = authRes.agent.clearanceRank || '2nd Lieutenant';
         state.agentScore = authRes.agent.totalScore || 0;
         state.agentSquadron = authRes.agent.squadron || 'PARA SF';
+        state.eliminatedTargets = authRes.agent.eliminatedTargets || state.eliminatedTargets || [];
       }
     } catch (err) {
       console.warn('[AUTH] Convex login fallback:', err);
@@ -188,7 +191,8 @@ async function init() {
         name: state.agentName,
         rank: state.agentRank,
         score: state.agentScore,
-        squadron: state.agentSquadron
+        squadron: state.agentSquadron,
+        eliminatedTargets: state.eliminatedTargets
       }));
     } catch (e) {}
 
@@ -330,12 +334,16 @@ async function init() {
   // 9. Result Screen Loops & Salute
   document.getElementById('btn-next-mission')?.addEventListener('click', () => {
     playSound('beep', 800);
-    state.targetIndex = (state.targetIndex + 1) % state.targetsList.length;
     state.memorialIndex = (state.memorialIndex + 1) % state.memorialsList.length;
     if (state.gameMode === 'ROGUE') {
       state.rogueStreak = 0;
       start3DAR();
     } else {
+      const remaining = getAvailableCampaignTargets();
+      if (remaining.length > 0) {
+        state.targetIndex = state.targetsList.findIndex(t => t.codename === remaining[0].codename);
+        if (state.targetIndex === -1) state.targetIndex = 0;
+      }
       loadBriefingScreen();
     }
   });
@@ -362,15 +370,31 @@ async function init() {
       saluteBtn.style.borderColor = '#00ff88';
     }
 
+    // 1. Instant 0ms Optimistic UI Counter Update (No refresh needed!)
+    if (curMem) {
+      curMem.salutesCount = (curMem.salutesCount || 1947) + 1;
+      const liveElem = document.getElementById('hero-salutes-count');
+      if (liveElem) {
+        liveElem.textContent = `🇮🇳 ${curMem.salutesCount.toLocaleString()} Salutes Recorded`;
+      }
+    }
+
     // Trigger Fullscreen Tricolour Delight Animation (Right to Left sweep)
     triggerSaluteDelight(curMem?.name);
 
+    // 2. Persist Salute to Convex Cloud DB in background
     if (curMem) {
-      const res = await ConvexService.recordSalute(curMem.id, state.agentName);
-      if (res && res.salutesCount) {
-        curMem.salutesCount = res.salutesCount;
-        const liveElem = document.getElementById('hero-salutes-count');
-        if (liveElem) liveElem.textContent = `🇮🇳 ${res.salutesCount.toLocaleString()} Salutes Recorded`;
+      try {
+        const res = await ConvexService.recordSalute(curMem.id, state.agentName);
+        if (res && res.salutesCount) {
+          curMem.salutesCount = res.salutesCount;
+          const liveElem = document.getElementById('hero-salutes-count');
+          if (liveElem) {
+            liveElem.textContent = `🇮🇳 ${res.salutesCount.toLocaleString()} Salutes Recorded`;
+          }
+        }
+      } catch (err) {
+        console.warn('[Salute] DB sync:', err);
       }
     }
   });
@@ -482,6 +506,11 @@ function setupConvexSubscriptions() {
   });
 }
 
+// Helper: Filter remaining un-eliminated hostiles for Campaign Mode
+function getAvailableCampaignTargets() {
+  return state.targetsList.filter(t => !state.eliminatedTargets.includes(t.codename));
+}
+
 // --- SCREEN LOADERS ---
 function loadMainMenuScreen() {
   document.getElementById('menu-agent-name').textContent = state.agentName;
@@ -492,7 +521,51 @@ function loadMainMenuScreen() {
 }
 
 function loadBriefingScreen() {
-  document.getElementById('briefing-agent-callsign').textContent = state.agentName;
+  const available = getAvailableCampaignTargets();
+  const briefingAgent = document.getElementById('briefing-agent-callsign');
+  if (briefingAgent) briefingAgent.textContent = state.agentName;
+
+  const briefingText = document.getElementById('briefing-text');
+  const openDossierBtn = document.getElementById('btn-open-dossier');
+  const startMissionBtn = document.getElementById('btn-start-mission');
+
+  if (available.length === 0) {
+    // All terrorists in database have been eliminated by this user!
+    if (briefingText) {
+      briefingText.innerHTML = `
+        <div style="color: var(--accent-gold); font-size: 15px; font-weight: 700; margin-bottom: 8px; text-shadow: 0 0 10px rgba(229,169,60,0.5);">
+          🎖️ ALL SECTOR THREATS NEUTRALIZED // 100% PURGE
+        </div>
+        Outstanding operational valor, operative. You have eliminated all <b>${state.targetsList.length}</b> designated hostiles in the national database.
+        <br><br>
+        • Inspect your confirmed kills in the <b>Archives</b>.<br>
+        • Deploy into <b>Go Rogue</b> killstreak mode for endless target combat simulation.
+      `;
+    }
+    if (openDossierBtn) openDossierBtn.style.display = 'none';
+    if (startMissionBtn) startMissionBtn.style.display = 'none';
+  } else {
+    // Select the first un-eliminated target
+    state.targetIndex = state.targetsList.findIndex(t => t.codename === available[0].codename);
+    if (state.targetIndex === -1) state.targetIndex = 0;
+
+    const currentTarget = state.targetsList[state.targetIndex];
+    if (briefingText) {
+      const eliminatedCount = state.eliminatedTargets.length;
+      const totalCount = state.targetsList.length;
+      briefingText.innerHTML = `
+        <div style="color: var(--accent-cyan); font-size: 11px; font-weight: 700; margin-bottom: 6px; letter-spacing: 1px;">
+          CAMPAIGN PROGRESS: ${eliminatedCount} / ${totalCount} PURGED (${totalCount - eliminatedCount} REMAINING)
+        </div>
+        Intel indicates high-value hostile <b>${currentTarget.codename}</b> (${currentTarget.name}) has breached the operational sector.
+        <br><br>
+        You have a 4-second operational window to confirm identity before they disappear.
+      `;
+    }
+    if (openDossierBtn) openDossierBtn.style.display = 'block';
+    if (startMissionBtn) startMissionBtn.style.display = 'block';
+  }
+
   showScreen('briefing');
 }
 
@@ -518,12 +591,16 @@ function loadArchivesScreen() {
   container.innerHTML = '';
 
   state.targetsList.forEach((target) => {
+    const isEliminated = state.eliminatedTargets.includes(target.codename);
     const card = document.createElement('div');
-    card.className = 'archive-card';
+    card.className = `archive-card ${isEliminated ? 'eliminated' : ''}`;
     card.innerHTML = `
-      <img src="${target.faceImage}" alt="${target.codename}" />
+      <div style="position: relative; overflow: hidden; border-radius: 6px;">
+        <img src="${target.faceImage}" alt="${target.codename}" style="${isEliminated ? 'filter: grayscale(0.85) contrast(1.2);' : ''}" />
+        ${isEliminated ? '<div class="stamp-neutralized" style="top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-12deg); font-size: 13px; padding: 4px 8px; box-shadow: 0 0 15px rgba(255,51,75,0.8);">NEUTRALIZED</div>' : ''}
+      </div>
       <div class="archive-card-body">
-        <span class="archive-threat-tag">${target.threatLevel}</span>
+        <span class="archive-threat-tag" style="${isEliminated ? 'color: #00ff88; border-color: #00ff88;' : ''}">${isEliminated ? '● STATUS: NEUTRALIZED BY YOU' : target.threatLevel}</span>
         <h3>${target.codename} (${target.name})</h3>
         <p class="archive-desc"><b>Role:</b> ${target.role}</p>
         <p class="archive-desc"><b>Last Seen:</b> ${target.lastSeen}</p>
@@ -1054,6 +1131,13 @@ async function handleMissionOutcome(isSuccess, reason) {
     saluteBtn.style.borderColor = 'rgba(255, 153, 51, 0.6)';
   }
 
+  // Optimistically record eliminated target for this operative
+  if (isSuccess && currentTarget && currentTarget.codename) {
+    if (!state.eliminatedTargets.includes(currentTarget.codename)) {
+      state.eliminatedTargets.push(currentTarget.codename);
+    }
+  }
+
   // IMMEDIATELY switch to Result Screen!
   showScreen('result');
 
@@ -1071,6 +1155,9 @@ async function handleMissionOutcome(isSuccess, reason) {
     if (outcomeData) {
       state.agentScore = outcomeData.totalScore || state.agentScore;
       state.agentRank = outcomeData.clearanceRank || state.agentRank;
+      if (outcomeData.eliminatedTargets) {
+        state.eliminatedTargets = outcomeData.eliminatedTargets;
+      }
 
       const scoreValElem = document.getElementById('result-score-val');
       const scoreBreakdownElem = document.getElementById('result-score-breakdown');
@@ -1099,7 +1186,8 @@ async function handleMissionOutcome(isSuccess, reason) {
           name: state.agentName,
           rank: state.agentRank,
           score: state.agentScore,
-          squadron: state.agentSquadron
+          squadron: state.agentSquadron,
+          eliminatedTargets: state.eliminatedTargets
         }));
       } catch (e) {}
     }

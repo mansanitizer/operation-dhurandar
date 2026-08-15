@@ -35,6 +35,7 @@ export const ConvexService = {
           salutesGiven: 0,
           squadron,
           badges: ["RECON READY"],
+          eliminatedTargets: [],
         },
         isNew: false,
       };
@@ -79,11 +80,13 @@ export const ConvexService = {
   async recordSalute(memorialId, agentCallsign, message) {
     if (!client) return { success: true, salutesCount: 1948 };
     try {
-      return await client.mutation(api.memorials.salute, {
-        memorialId,
-        agentCallsign,
-        message,
+      const res = await client.mutation(api.memorials.salute, {
+        memorialId: memorialId || "sandeep-unnikrishnan",
+        agentCallsign: (agentCallsign || "AGENT DHURANDAR").trim().toUpperCase(),
+        message: message || "Saluted with Highest National Honors 🇮🇳",
       });
+      console.log("[CONVEX] Salute recorded live in DB:", res);
+      return res;
     } catch (err) {
       console.error("[CONVEX] recordSalute error:", err);
       return { success: false };
