@@ -1156,6 +1156,79 @@ body, html {
   transition: opacity 0.35s ease-out;
 }
 
+/* CINEMATIC KILL OVERLAY BANNER */
+.kill-banner-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(255, 51, 75, 0.4) 0%, rgba(0, 0, 0, 0.85) 100%);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  backdrop-filter: blur(2px);
+}
+
+.kill-banner-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.kill-banner-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transform: scale(0.7);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.kill-banner-overlay.active .kill-banner-content {
+  transform: scale(1);
+}
+
+.kill-banner-badge {
+  background: #ff334b;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  padding: 4px 14px;
+  border-radius: 3px;
+  box-shadow: 0 0 20px rgba(255, 51, 75, 0.8);
+  animation: rogue-pulse 0.6s infinite alternate;
+}
+
+.kill-banner-title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #ffffff;
+  text-shadow: 0 0 25px rgba(255, 51, 75, 0.9), 0 2px 8px #000;
+  margin: 0;
+}
+
+.kill-banner-sub {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #ff9933;
+  letter-spacing: 2px;
+  font-weight: bold;
+}
+
+.kill-banner-strip {
+  width: 140px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #ff334b, #ff9933, transparent);
+  margin-top: 4px;
+}
+
 /* ==========================================================================
    SCREEN 6: DEBRIEF & IN MEMORIAM
    ========================================================================== */

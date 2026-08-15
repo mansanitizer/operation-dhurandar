@@ -723,7 +723,25 @@ function handleGunshotFire() {
 
     // Check if target is completely neutralized (5 hits)
     if (result.isEliminated) {
+      // 1. Play Death Scream IMMEDIATELY (0ms)
       playSound('deathScream');
+
+      // 2. Display Cinematic Elimination Banner
+      const banner = document.getElementById('kill-banner-overlay');
+      const bannerSub = document.getElementById('kill-banner-codename');
+      const curTarget = state.targetsList[state.targetIndex] || {};
+      if (bannerSub) {
+        bannerSub.textContent = `${curTarget.codename || 'HOSTILE'} NEUTRALIZED`;
+      }
+      if (banner) banner.classList.add('active');
+
+      if (hpElem) {
+        hpElem.textContent = '0% [●●●●●] ELIMINATED';
+        hpElem.style.color = '#ff334b';
+      }
+
+      clearInterval(state.missionTimerInterval);
+      if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
 
       if (state.gameMode === 'ROGUE') {
         // --- GO ROGUE CONTINUOUS MODE ---
@@ -738,24 +756,17 @@ function handleGunshotFire() {
           statusBadge.style.color = '#00ff88';
         }
 
-        if (hpElem) {
-          hpElem.textContent = '0% [●●●●●] ELIMINATED';
-          hpElem.style.color = '#ff334b';
-        }
-
-        clearInterval(state.missionTimerInterval);
-        if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
-
         // Advance to next terrorist in dataset
         state.targetIndex = (state.targetIndex + 1) % state.targetsList.length;
         state.memorialIndex = (state.memorialIndex + 1) % state.memorialsList.length;
 
-        // Spawn next target continuously after 800ms
+        // Cinematic 1.2s delay before spawning next target
         setTimeout(() => {
+          if (banner) banner.classList.remove('active');
           if (state.currentScreen === 'mission' && !state.missionEnded) {
             spawnNextRogueTarget();
           }
-        }, 800);
+        }, 1200);
       } else {
         // --- CAMPAIGN SINGLE MISSION MODE ---
         state.missionEnded = true;
@@ -766,21 +777,17 @@ function handleGunshotFire() {
           statusBadge.style.color = '#00ff88';
         }
 
-        if (hpElem) {
-          hpElem.textContent = '0% [●●●●●] ELIMINATED';
-          hpElem.style.color = '#ff334b';
-        }
-
-        clearInterval(state.missionTimerInterval);
-        if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
-
         try {
           state.capturedEvidence = arEngine.captureEvidencePhoto();
         } catch (e) {
           state.capturedEvidence = null;
         }
 
-        handleMissionOutcome(true, 'ELIMINATED');
+        // Cinematic 1.5s delay before smooth transition to debrief screen
+        setTimeout(() => {
+          if (banner) banner.classList.remove('active');
+          handleMissionOutcome(true, 'ELIMINATED');
+        }, 1500);
       }
     }
   } else {
@@ -798,6 +805,9 @@ async function handleMissionOutcome(isSuccess, reason) {
   if (state.outcomeProcessed) return;
   state.outcomeProcessed = true;
   state.missionEnded = true;
+
+  const banner = document.getElementById('kill-banner-overlay');
+  if (banner) banner.classList.remove('active');
 
   clearInterval(state.missionTimerInterval);
   if (state.spawnTimeout) clearTimeout(state.spawnTimeout);

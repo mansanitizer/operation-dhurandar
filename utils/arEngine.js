@@ -306,11 +306,18 @@ class AREngine {
 
       const isEliminated = this.target.health <= 0;
       if (isEliminated) {
-        this.isSpawned = false;
-        this.target.isLoaded = false;
-        this.target.image = null;
-        if (this.ctx && this.canvas) {
-          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.target.isDying = true;
+        this.target.deathStartTime = Date.now();
+        // Burst of death explosion sparks
+        for (let i = 0; i < 35; i++) {
+          this.target.sparks.push({
+            x: (Math.random() - 0.5) * 50,
+            y: (Math.random() - 0.5) * 70,
+            vx: (Math.random() - 0.5) * 18,
+            vy: (Math.random() - 0.5) * 18,
+            life: 1.0,
+            color: Math.random() > 0.3 ? '#ff334b' : '#ff9933'
+          });
         }
       }
 
@@ -418,38 +425,58 @@ class AREngine {
         ctx.save();
         ctx.translate(screenX, screenY);
 
+        // Death collapse animation handling
+        if (this.target.isDying) {
+          const deathProgress = Math.min(1, (Date.now() - (this.target.deathStartTime || Date.now())) / 600);
+          if (deathProgress >= 1) {
+            this.isSpawned = false;
+            this.target.isDying = false;
+            ctx.restore();
+            return;
+          }
+          ctx.translate(0, deathProgress * 50 * dpr);
+          ctx.scale(1 - deathProgress * 0.35, 1 - deathProgress * 0.35);
+          ctx.globalAlpha = Math.max(0, 1 - deathProgress);
+
+          // Glowing shockwave
+          ctx.strokeStyle = '#ff334b';
+          ctx.lineWidth = 3 * (1 - deathProgress) * dpr;
+          ctx.beginPath();
+          ctx.arc(0, 0, (spriteW / 2 + 10 * dpr) * (1 + deathProgress * 1.8), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
         const isHitFlashing = Date.now() < (this.target.hitFlashUntil || 0);
 
-        // 3D Threat Glow Ring
-        ctx.strokeStyle = isHitFlashing ? '#ffffff' : (isInViewfinder ? '#ff334b' : '#ff9933');
-        ctx.lineWidth = (isHitFlashing ? 4.5 : 3) * dpr;
-        ctx.beginPath();
-        ctx.arc(0, 0, (spriteW / 2) + 16 * dpr, 0, Math.PI * 2);
-        ctx.stroke();
+        // 3D Threat Glow Ring (only if not dying)
+        if (!this.target.isDying) {
+          ctx.strokeStyle = isHitFlashing ? '#ffffff' : (isInViewfinder ? '#ff334b' : '#ff9933');
+          ctx.lineWidth = (isHitFlashing ? 4.5 : 3) * dpr;
+          ctx.beginPath();
+          ctx.arc(0, 0, (spriteW / 2) + 16 * dpr, 0, Math.PI * 2);
+          ctx.stroke();
 
-        // 3D HEALTH BAR (Top of Hostile)
-        const barW = 130 * dpr;
-        const barH = 10 * dpr;
-        const barY = -spriteH / 2 - 28 * dpr;
-        const hpPercent = Math.max(0, (this.target.health || 100) / 100);
+          // 3D HEALTH BAR (Top of Hostile)
+          const barW = 130 * dpr;
+          const barH = 10 * dpr;
+          const barY = -spriteH / 2 - 28 * dpr;
+          const hpPercent = Math.max(0, (this.target.health || 100) / 100);
 
-        // Bar Container Background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        ctx.fillRect(-barW / 2, barY, barW, barH);
-        ctx.strokeStyle = '#e5a93c';
-        ctx.lineWidth = 1 * dpr;
-        ctx.strokeRect(-barW / 2, barY, barW, barH);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+          ctx.fillRect(-barW / 2, barY, barW, barH);
+          ctx.strokeStyle = '#e5a93c';
+          ctx.lineWidth = 1 * dpr;
+          ctx.strokeRect(-barW / 2, barY, barW, barH);
 
-        // Bar Fill
-        ctx.fillStyle = hpPercent > 0.4 ? '#00ff88' : '#ff334b';
-        ctx.fillRect(-barW / 2 + 1 * dpr, barY + 1 * dpr, (barW - 2 * dpr) * hpPercent, barH - 2 * dpr);
+          ctx.fillStyle = hpPercent > 0.4 ? '#00ff88' : '#ff334b';
+          ctx.fillRect(-barW / 2 + 1 * dpr, barY + 1 * dpr, (barW - 2 * dpr) * hpPercent, barH - 2 * dpr);
 
-        // Health & Hit Pips Text
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${8 * dpr}px monospace`;
-        ctx.textAlign = 'center';
-        const hitPips = '●'.repeat(this.target.currentHits || 0) + '○'.repeat(Math.max(0, 5 - (this.target.currentHits || 0)));
-        ctx.fillText(`HP: ${this.target.health}%  [${hitPips}]`, 0, barY - 4 * dpr);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = `bold ${8 * dpr}px monospace`;
+          ctx.textAlign = 'center';
+          const hitPips = '●'.repeat(this.target.currentHits || 0) + '○'.repeat(Math.max(0, 5 - (this.target.currentHits || 0)));
+          ctx.fillText(`HP: ${this.target.health}%  [${hitPips}]`, 0, barY - 4 * dpr);
+        }
 
         // Draw 3D Target Sprite or Silhouette Fallback
         if (this.target.isLoaded && this.target.image) {
