@@ -49,12 +49,16 @@ function playSound(action, ...args) {
 
 // --- SCREEN NAVIGATION ---
 function showScreen(screenKey) {
-  Object.values(screens).forEach(screen => {
-    if (screen) screen.classList.remove('active');
+  document.querySelectorAll('.screen').forEach(screen => {
+    screen.classList.remove('active');
   });
-  if (screens[screenKey]) {
-    screens[screenKey].classList.add('active');
+  const target = document.getElementById(`screen-${screenKey}`) || screens[screenKey];
+  if (target) {
+    target.classList.add('active');
     state.currentScreen = screenKey;
+    try {
+      window.scrollTo(0, 0);
+    } catch (e) {}
   }
 }
 
@@ -643,11 +647,15 @@ function handleGunshotFire() {
       }
 
       clearInterval(state.missionTimerInterval);
-      state.capturedEvidence = arEngine.captureEvidencePhoto();
+      if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
 
-      setTimeout(() => {
-        handleMissionOutcome(true, 'ELIMINATED');
-      }, 350);
+      try {
+        state.capturedEvidence = arEngine.captureEvidencePhoto();
+      } catch (e) {
+        state.capturedEvidence = null;
+      }
+
+      handleMissionOutcome(true, 'ELIMINATED');
     }
   } else {
     // Shot missed
