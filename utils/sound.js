@@ -307,21 +307,37 @@ export const Sound = {
   },
 
   // Hostile elimination death scream
-  deathScream(style = 'wilhelm') {
+  deathScream() {
     try {
-      const screamFiles = {
-        wilhelm: '/assets/audio/scream_wilhelm_original.wav',
-        dramatic: '/assets/audio/scream_dramatic.wav',
-        guttural: '/assets/audio/scream_guttural.wav',
-        tactical: '/assets/audio/scream_tactical.wav'
-      };
+      const screamSources = [
+        '/audio/scream.mp3',
+        '/audio/scream.wav',
+        '/assets/audio/scream.mp3',
+        './audio/scream.mp3',
+        './audio/scream.wav'
+      ];
 
-      const audioSrc = screamFiles[style] || screamFiles.wilhelm;
-      const audio = new Audio(audioSrc);
-      audio.volume = 0.85;
-      audio.play().catch(() => {
-        this.proceduralScream();
+      const audio = new Audio();
+      audio.volume = 0.9;
+      let currentIdx = 0;
+      audio.src = screamSources[currentIdx];
+
+      audio.addEventListener('error', () => {
+        if (currentIdx < screamSources.length - 1) {
+          currentIdx++;
+          audio.src = screamSources[currentIdx];
+          audio.play().catch(() => this.proceduralScream());
+        } else {
+          this.proceduralScream();
+        }
       });
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          this.proceduralScream();
+        });
+      }
     } catch (e) {
       this.proceduralScream();
     }
