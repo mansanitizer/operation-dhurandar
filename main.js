@@ -436,52 +436,73 @@ async function start3DAR() {
     state.arInitialized = true;
   }
 
+  // Reset Mission & Hunting State
   state.missionState = 'HUNTING';
   state.timerStarted = false;
+  state.missionEnded = false;
+  state.outcomeProcessed = false;
   state.timeLeft = 5.0;
   arEngine.isSpawned = false;
   if (state.missionTimerInterval) clearInterval(state.missionTimerInterval);
   if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
 
+  // Set HUD to Hunting Mode
   const timerElem = document.getElementById('mission-timer');
-  timerElem.textContent = 'STANDBY (HUNTING)';
-  timerElem.style.color = '#00f2fe';
+  if (timerElem) {
+    timerElem.textContent = 'STANDBY (HUNTING)';
+    timerElem.style.color = '#00f2fe';
+  }
+
+  const hpElem = document.getElementById('hud-target-hp');
+  if (hpElem) {
+    hpElem.textContent = '100% [○○○○○]';
+    hpElem.style.color = '#00ff88';
+  }
 
   const statusBadge = document.getElementById('hud-status');
-  statusBadge.textContent = '🔍 HUNTING MODE: MOVE & SWEEP 360° ENVIRONMENT...';
-  statusBadge.style.borderColor = 'rgba(0, 242, 254, 0.4)';
-  statusBadge.style.color = '#00f2fe';
+  if (statusBadge) {
+    statusBadge.textContent = '🔍 HUNTING MODE: MOVE & SWEEP 360° ENVIRONMENT...';
+    statusBadge.style.borderColor = 'rgba(0, 242, 254, 0.4)';
+    statusBadge.style.color = '#00f2fe';
+  }
 
   playSound('radarPing', 900);
 
+  // Dynamic Spawning Trigger: Hostile appears after 3.5 to 7.0 seconds of hunting
   const huntDelay = 3500 + Math.random() * 3500;
   state.spawnTimeout = setTimeout(() => {
-    if (state.currentScreen === 'mission' && !state.timerStarted) {
+    if (state.currentScreen === 'mission' && !state.timerStarted && !state.missionEnded) {
       state.missionState = 'NEARBY';
       
       const currentTarget = state.targetsList[state.targetIndex];
       arEngine.spawnTarget(currentTarget.bodySprite);
 
       playSound('radarPing', 1500);
-      statusBadge.textContent = '⚠️ PROXIMITY ALERT: HOSTILE IN SECTOR — LOCATE NOW!';
-      statusBadge.style.borderColor = '#ff9933';
-      statusBadge.style.color = '#ff9933';
+      if (statusBadge) {
+        statusBadge.textContent = '⚠️ PROXIMITY ALERT: HOSTILE IN SECTOR — LOCATE NOW!';
+        statusBadge.style.borderColor = '#ff9933';
+        statusBadge.style.color = '#ff9933';
+      }
     }
   }, huntDelay);
 }
 
 function start5SecondWindow() {
+  if (state.missionEnded) return;
+
   state.timerStarted = true;
   state.missionState = 'ENGAGED';
   state.timeLeft = 5.0;
 
   const timerElem = document.getElementById('mission-timer');
-  timerElem.style.color = '#ff334b';
+  if (timerElem) timerElem.style.color = '#ff334b';
 
   const statusBadge = document.getElementById('hud-status');
-  statusBadge.textContent = '🚨 TARGET IN SIGHT — 5s ENGAGEMENT WINDOW!';
-  statusBadge.style.borderColor = '#ff334b';
-  statusBadge.style.color = '#ff334b';
+  if (statusBadge) {
+    statusBadge.textContent = '🚨 TARGET IN SIGHT — 5s ENGAGEMENT WINDOW!';
+    statusBadge.style.borderColor = '#ff334b';
+    statusBadge.style.color = '#ff334b';
+  }
 
   playSound('beep', 1200, 'sawtooth');
 
@@ -489,8 +510,13 @@ function start5SecondWindow() {
   let lastSecondInt = 5;
 
   state.missionTimerInterval = setInterval(() => {
+    if (state.missionEnded) {
+      clearInterval(state.missionTimerInterval);
+      return;
+    }
+
     state.timeLeft = Math.max(0, state.timeLeft - (tickIntervalMs / 1000));
-    timerElem.textContent = state.timeLeft.toFixed(2) + 's';
+    if (timerElem) timerElem.textContent = state.timeLeft.toFixed(2) + 's';
 
     const currentSec = Math.ceil(state.timeLeft);
     if (currentSec !== lastSecondInt && currentSec > 0) {
@@ -500,13 +526,17 @@ function start5SecondWindow() {
 
     if (state.timeLeft <= 0) {
       clearInterval(state.missionTimerInterval);
-      handleMissionOutcome(false, 'TIMEOUT');
+      if (!state.missionEnded) {
+        handleMissionOutcome(false, 'TIMEOUT');
+      }
     }
   }, tickIntervalMs);
 }
 
 // Telemetry Callback from AR Engine
 function handleARTelemetry(data) {
+  if (state.missionEnded || state.currentScreen !== 'mission') return;
+
   const { isInViewfinder, isLocked, distance, azimuth, directionHint, health = 100, hits = 0 } = data;
   state.isTargetLocked = isLocked;
 
@@ -555,7 +585,7 @@ function handleARTelemetry(data) {
 
 // Gunshot Firing Trigger (Tap repeatedly to eliminate target)
 function handleGunshotFire() {
-  if (state.currentScreen !== 'mission') return;
+  if (state.currentScreen !== 'mission' || state.missionEnded) return;
   if (state.timeLeft <= 0 && state.timerStarted) return;
 
   // 1. Play Tactical Gunshot Sound
@@ -599,10 +629,17 @@ function handleGunshotFire() {
 
     // Check if target is completely neutralized (5 hits)
     if (result.isEliminated) {
+      state.missionEnded = true;
+
       if (statusBadge) {
         statusBadge.textContent = '☠️ HOSTILE NEUTRALIZED // MISSION ACCOMPLISHED';
         statusBadge.style.borderColor = '#00ff88';
         statusBadge.style.color = '#00ff88';
+      }
+
+      if (hpElem) {
+        hpElem.textContent = '0% [●●●●●] ELIMINATED';
+        hpElem.style.color = '#ff334b';
       }
 
       clearInterval(state.missionTimerInterval);
@@ -610,7 +647,7 @@ function handleGunshotFire() {
 
       setTimeout(() => {
         handleMissionOutcome(true, 'ELIMINATED');
-      }, 400);
+      }, 350);
     }
   } else {
     // Shot missed
@@ -624,6 +661,14 @@ function handleGunshotFire() {
 
 // --- MISSION DEBRIEF & CONVEX SCORING SYNC ---
 async function handleMissionOutcome(isSuccess, reason) {
+  if (state.outcomeProcessed) return;
+  state.outcomeProcessed = true;
+  state.missionEnded = true;
+
+  clearInterval(state.missionTimerInterval);
+  if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
+  arEngine.stop();
+
   const currentTarget = state.targetsList[state.targetIndex];
   const currentMemorial = state.memorialsList[state.memorialIndex];
 

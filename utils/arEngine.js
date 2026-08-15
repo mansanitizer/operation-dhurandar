@@ -243,6 +243,9 @@ class AREngine {
   // Register Gunshot on Target
   shoot() {
     if (!this.isSpawned) return { hit: false, reason: 'NO_TARGET' };
+    if (this.target.health !== undefined && this.target.health <= 0) {
+      return { hit: true, isEliminated: true, remainingHp: 0, hits: 5, maxHits: 5 };
+    }
 
     // Check if target is locked or in crosshair zone
     const isHit = this.isLocked || this.isInViewfinder;
