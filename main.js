@@ -435,10 +435,9 @@ async function start3DAR() {
 
   await arEngine.requestPermissions();
 
-  if (!state.arInitialized) {
-    arEngine.init(viewport, videoElem, handleARTelemetry);
-    state.arInitialized = true;
-  }
+  // Cleanly start/restart AR engine and purge previous targets
+  arEngine.start(viewport, videoElem, handleARTelemetry);
+  state.arInitialized = true;
 
   // Reset Mission & Hunting State
   state.missionState = 'HUNTING';
@@ -446,7 +445,6 @@ async function start3DAR() {
   state.missionEnded = false;
   state.outcomeProcessed = false;
   state.timeLeft = 5.0;
-  arEngine.isSpawned = false;
   if (state.missionTimerInterval) clearInterval(state.missionTimerInterval);
   if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
 

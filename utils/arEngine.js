@@ -90,6 +90,41 @@ class AREngine {
     return { camera: cameraGranted, gyro: gyroGranted };
   }
 
+  start(container, videoElement, onTelemetryUpdate) {
+    if (container) this.container = container;
+    if (videoElement) this.videoElement = videoElement;
+    if (onTelemetryUpdate) this.onTelemetryUpdate = onTelemetryUpdate;
+
+    if (!this.canvas && this.container) {
+      this.init(this.container, this.videoElement, this.onTelemetryUpdate);
+    }
+
+    // Completely reset target & state so previous sprite is purged
+    this.isSpawned = false;
+    this.isInViewfinder = false;
+    this.isLocked = false;
+    this.target = {
+      azimuth: 0,
+      altitude: 0,
+      distance: 3.8,
+      isLoaded: false,
+      image: null,
+      health: 100,
+      currentHits: 0,
+      maxHits: 5,
+      hitFlashUntil: 0,
+      sparks: []
+    };
+
+    if (this.ctx && this.canvas) {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    if (!this.animationFrameId) {
+      this.startLoop();
+    }
+  }
+
   init(container, videoElement, onTelemetryUpdate) {
     this.container = container;
     this.videoElement = videoElement;
@@ -111,7 +146,9 @@ class AREngine {
     window.addEventListener('resize', this.resize.bind(this));
     this.bindTouchControls();
     this.bindSensors();
-    this.startLoop();
+    if (!this.animationFrameId) {
+      this.startLoop();
+    }
   }
 
   resize() {
@@ -531,6 +568,9 @@ class AREngine {
   }
 
   stop() {
+    if (this.ctx && this.canvas) {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
@@ -542,6 +582,12 @@ class AREngine {
       this.cameraStream = null;
     }
     this.isCameraActive = false;
+    this.isSpawned = false;
+    this.target.isLoaded = false;
+    this.target.image = null;
+    this.target.health = 100;
+    this.target.currentHits = 0;
+    this.target.sparks = [];
   }
 }
 
