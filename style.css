@@ -1229,6 +1229,31 @@ body, html {
   margin-top: 4px;
 }
 
+/* CINEMATIC EVADED THEME */
+.kill-banner-overlay.evade-theme {
+  background: radial-gradient(circle, rgba(255, 153, 51, 0.45) 0%, rgba(0, 0, 0, 0.88) 100%);
+}
+
+.evade-badge {
+  background: #ff9933;
+  color: #000;
+  box-shadow: 0 0 20px rgba(255, 153, 51, 0.85);
+  animation: rogue-pulse 0.5s infinite alternate;
+}
+
+.evade-title {
+  color: #ff9933;
+  text-shadow: 0 0 25px rgba(255, 153, 51, 0.95), 0 2px 8px #000;
+}
+
+.evade-sub {
+  color: #ff334b;
+}
+
+.evade-strip {
+  background: linear-gradient(90deg, transparent, #ff9933, #ff334b, transparent);
+}
+
 /* ==========================================================================
    SCREEN 6: DEBRIEF & IN MEMORIAM
    ========================================================================== */

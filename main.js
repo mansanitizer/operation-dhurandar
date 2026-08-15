@@ -852,10 +852,44 @@ function start4SecondWindow() {
     if (state.timeLeft <= 0) {
       clearInterval(state.missionTimerInterval);
       if (!state.missionEnded) {
-        handleMissionOutcome(false, 'TIMEOUT');
+        triggerEvadedSequence('TIMEOUT');
       }
     }
   }, tickIntervalMs);
+}
+
+// Cinematic Evaded Sequence with animated banner & audio
+function triggerEvadedSequence(reason = 'TIMEOUT') {
+  if (state.missionEnded || state.outcomeProcessed) return;
+  state.missionEnded = true;
+
+  clearInterval(state.missionTimerInterval);
+  if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
+
+  // 1. Play tactical evasion alarm sound
+  playSound('beep', 250, 'sawtooth');
+
+  // 2. Display Cinematic Evaded Overlay Banner
+  const banner = document.getElementById('evade-banner-overlay');
+  const bannerSub = document.getElementById('evade-banner-codename');
+  const curTarget = state.targetsList[state.targetIndex] || {};
+  if (bannerSub) {
+    bannerSub.textContent = `${curTarget.codename || 'HOSTILE'} ESCAPED SECTOR`;
+  }
+  if (banner) banner.classList.add('active');
+
+  const statusBadge = document.getElementById('hud-status');
+  if (statusBadge) {
+    statusBadge.textContent = '⚠️ TARGET EVADED // OPERATIONAL WINDOW CLOSED!';
+    statusBadge.style.borderColor = '#ff9933';
+    statusBadge.style.color = '#ff9933';
+  }
+
+  // 3. Cinematic 1.5s delay before debrief transition
+  setTimeout(() => {
+    if (banner) banner.classList.remove('active');
+    handleMissionOutcome(false, reason);
+  }, 1500);
 }
 
 // Telemetry Callback from AR Engine
@@ -1038,8 +1072,10 @@ async function handleMissionOutcome(isSuccess, reason) {
   state.outcomeProcessed = true;
   state.missionEnded = true;
 
-  const banner = document.getElementById('kill-banner-overlay');
-  if (banner) banner.classList.remove('active');
+  const killBanner = document.getElementById('kill-banner-overlay');
+  if (killBanner) killBanner.classList.remove('active');
+  const evadeBanner = document.getElementById('evade-banner-overlay');
+  if (evadeBanner) evadeBanner.classList.remove('active');
 
   clearInterval(state.missionTimerInterval);
   if (state.spawnTimeout) clearTimeout(state.spawnTimeout);
