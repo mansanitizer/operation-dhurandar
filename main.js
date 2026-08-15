@@ -247,6 +247,11 @@ async function init() {
     loadDossierScreen();
   });
 
+  document.getElementById('btn-back-to-hq-from-briefing')?.addEventListener('click', () => {
+    playSound('beep', 700);
+    loadMainMenuScreen();
+  });
+
   document.getElementById('btn-start-mission')?.addEventListener('click', async () => {
     playSound('beep', 1200);
     await start3DAR();
