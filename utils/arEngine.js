@@ -105,7 +105,11 @@ class AREngine {
     this.isLocked = false;
     this.target = {
       azimuth: 0,
+      currentAzimuth: 0,
+      targetAzimuth: 0,
       altitude: 0,
+      currentAltitude: 0,
+      targetAltitude: 0,
       distance: 3.8,
       isLoaded: false,
       image: null,
@@ -113,7 +117,10 @@ class AREngine {
       currentHits: 0,
       maxHits: 5,
       hitFlashUntil: 0,
-      sparks: []
+      sparks: [],
+      flinchX: 0,
+      flinchY: 0,
+      flinchAngle: 0
     };
 
     if (this.ctx && this.canvas) {
@@ -254,8 +261,15 @@ class AREngine {
     const sign = Math.random() > 0.5 ? 1 : -1;
     const randomAngleOffset = sign * (Math.PI / 2.8 + Math.random() * (Math.PI / 3.5)); // 65° to 115°
     
-    this.target.azimuth = (current.heading + randomAngleOffset + Math.PI * 2) % (Math.PI * 2);
-    this.target.altitude = current.pitch;
+    const spawnAz = (current.heading + randomAngleOffset + Math.PI * 2) % (Math.PI * 2);
+    const spawnAlt = current.pitch;
+
+    this.target.azimuth = spawnAz;
+    this.target.currentAzimuth = spawnAz;
+    this.target.targetAzimuth = spawnAz;
+    this.target.altitude = spawnAlt;
+    this.target.currentAltitude = spawnAlt;
+    this.target.targetAltitude = spawnAlt;
     this.target.distance = 3.8;
     this.target.isLoaded = false;
     this.target.health = 100;
@@ -263,6 +277,9 @@ class AREngine {
     this.target.maxHits = 5;
     this.target.hitFlashUntil = 0;
     this.target.sparks = [];
+    this.target.flinchX = 0;
+    this.target.flinchY = 0;
+    this.target.flinchAngle = 0;
     this.isSpawned = true;
 
     const img = new Image();
@@ -277,7 +294,7 @@ class AREngine {
     };
   }
 
-  // Register Gunshot on Target
+  // Register Gunshot on Target & Trigger Reactive Evasion Physics
   shoot() {
     if (!this.isSpawned) return { hit: false, reason: 'NO_TARGET' };
     if (this.target.health !== undefined && this.target.health <= 0) {
@@ -305,6 +322,8 @@ class AREngine {
       }
 
       const isEliminated = this.target.health <= 0;
+      let evasionDir = 'REPOSITIONING';
+
       if (isEliminated) {
         this.target.isDying = true;
         this.target.deathStartTime = Date.now();
@@ -319,6 +338,29 @@ class AREngine {
             color: Math.random() > 0.3 ? '#ff334b' : '#ff9933'
           });
         }
+      } else {
+        // --- REACTIVE EVASION PHYSICS (Target scrambles left/right/up/down upon being shot) ---
+        const isLeft = Math.random() > 0.5;
+        const isUp = Math.random() > 0.5;
+        
+        // Horizontal Angular Shift (~6° to ~13° in 3D Space)
+        const horizShift = (isLeft ? -1 : 1) * (0.10 + Math.random() * 0.12);
+        // Vertical Angular Shift (~2.5° to ~6° pitch)
+        const vertShift = (isUp ? 1 : -1) * (0.04 + Math.random() * 0.06);
+
+        // Apply new spatial destination coordinates
+        const baseAz = this.target.targetAzimuth !== undefined ? this.target.targetAzimuth : this.target.azimuth;
+        this.target.targetAzimuth = (baseAz + horizShift + Math.PI * 2) % (Math.PI * 2);
+        
+        const baseAlt = this.target.targetAltitude !== undefined ? this.target.targetAltitude : this.target.altitude;
+        this.target.targetAltitude = Math.max(-0.35, Math.min(0.35, baseAlt + vertShift));
+
+        // Impact Flinch / Ragdoll Knockback impulse
+        this.target.flinchX = isLeft ? -28 : 28;
+        this.target.flinchY = isUp ? -18 : 16;
+        this.target.flinchAngle = isLeft ? -0.12 : 0.12;
+
+        evasionDir = isLeft ? 'LEFT' : 'RIGHT';
       }
 
       return {
@@ -326,7 +368,9 @@ class AREngine {
         isEliminated,
         remainingHp: this.target.health,
         hits: this.target.currentHits,
-        maxHits: this.target.maxHits
+        maxHits: this.target.maxHits,
+        evaded: !isEliminated,
+        evasionDir
       };
     }
 
@@ -380,6 +424,31 @@ class AREngine {
       return;
     }
 
+    // Dynamic Evasive Movement & Stagger Physics Smoothing
+    if (!this.target.isDying) {
+      if (this.target.currentAzimuth === undefined) this.target.currentAzimuth = this.target.azimuth;
+      if (this.target.targetAzimuth === undefined) this.target.targetAzimuth = this.target.azimuth;
+      if (this.target.currentAltitude === undefined) this.target.currentAltitude = this.target.altitude;
+      if (this.target.targetAltitude === undefined) this.target.targetAltitude = this.target.altitude;
+
+      // Angular lerp around circle (shortest angular path)
+      let dAz = this.target.targetAzimuth - this.target.currentAzimuth;
+      while (dAz > Math.PI) dAz -= Math.PI * 2;
+      while (dAz < -Math.PI) dAz += Math.PI * 2;
+      this.target.currentAzimuth += dAz * 0.14;
+      this.target.currentAzimuth = (this.target.currentAzimuth + Math.PI * 2) % (Math.PI * 2);
+      this.target.azimuth = this.target.currentAzimuth;
+
+      // Pitch / altitude lerp
+      this.target.currentAltitude += (this.target.targetAltitude - this.target.currentAltitude) * 0.14;
+      this.target.altitude = this.target.currentAltitude;
+
+      // Smooth decay of flinch / stagger kick
+      if (this.target.flinchX) this.target.flinchX *= 0.82;
+      if (this.target.flinchY) this.target.flinchY *= 0.82;
+      if (this.target.flinchAngle) this.target.flinchAngle *= 0.80;
+    }
+
     const { heading, pitch } = this.getCurrentViewOrientation();
 
     // Angular delta between player heading and target azimuth
@@ -423,7 +492,10 @@ class AREngine {
         const spriteH = 280 * scale;
 
         ctx.save();
-        ctx.translate(screenX, screenY);
+        ctx.translate(screenX + (this.target.flinchX || 0) * dpr, screenY + (this.target.flinchY || 0) * dpr);
+        if (this.target.flinchAngle) {
+          ctx.rotate(this.target.flinchAngle);
+        }
 
         // Death collapse animation handling
         if (this.target.isDying) {

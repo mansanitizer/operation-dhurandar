@@ -146,6 +146,22 @@ async function init() {
   const passInput = document.getElementById('agent-passcode');
   const squadronInput = document.getElementById('agent-squadron');
 
+  // Restore cached operative profile from localStorage if present
+  try {
+    const saved = localStorage.getItem('dhurandar_agent');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.name && nameInput) nameInput.value = parsed.name;
+      if (parsed.squadron && squadronInput) squadronInput.value = parsed.squadron;
+      if (parsed.name) {
+        state.agentName = parsed.name;
+        state.agentRank = parsed.rank || '2nd Lieutenant';
+        state.agentScore = parsed.score || 0;
+        state.agentSquadron = parsed.squadron || 'PARA SF';
+      }
+    }
+  } catch (e) {}
+
   const doLogin = async () => {
     const nameVal = nameInput ? nameInput.value.trim() : '';
     const passVal = passInput ? passInput.value.trim() : '';
@@ -156,13 +172,27 @@ async function init() {
 
     playSound('beep', 1000);
 
-    // Authenticate with Convex DB
-    const authRes = await ConvexService.loginOrRegister(state.agentName, passVal, squadVal);
-    if (authRes && authRes.agent) {
-      state.agentRank = authRes.agent.clearanceRank || '2nd Lieutenant';
-      state.agentScore = authRes.agent.totalScore || 0;
-      state.agentSquadron = authRes.agent.squadron || squadVal;
+    // Authenticate with Convex DB backend
+    try {
+      const authRes = await ConvexService.loginOrRegister(state.agentName, passVal, squadVal);
+      if (authRes && authRes.agent) {
+        state.agentName = authRes.agent.callsign || state.agentName;
+        state.agentRank = authRes.agent.clearanceRank || '2nd Lieutenant';
+        state.agentScore = authRes.agent.totalScore || 0;
+        state.agentSquadron = authRes.agent.squadron || squadVal;
+      }
+    } catch (err) {
+      console.warn('[AUTH] Convex login fallback:', err);
     }
+
+    try {
+      localStorage.setItem('dhurandar_agent', JSON.stringify({
+        name: state.agentName,
+        rank: state.agentRank,
+        score: state.agentScore,
+        squadron: state.agentSquadron
+      }));
+    } catch (e) {}
 
     loadMainMenuScreen();
   };
@@ -445,6 +475,13 @@ function setupConvexSubscriptions() {
       }
     }
   });
+
+  // 3. Real-time Leaderboard sync
+  ConvexService.subscribeToLeaderboard((agents) => {
+    if (state.currentScreen === 'leaderboard' && agents) {
+      renderLeaderboardRows(agents);
+    }
+  });
 }
 
 // --- SCREEN LOADERS ---
@@ -526,40 +563,54 @@ function loadHeroesScreen() {
   showScreen('heroes');
 }
 
-async function loadLeaderboardScreen() {
+function renderLeaderboardRows(agents) {
   const tbody = document.getElementById('leaderboard-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--accent-cyan); padding: 16px;">FETCHING SATELLITE TELEMETRY...</td></tr>';
-
-  showScreen('leaderboard');
-
-  const agents = await ConvexService.getLeaderboard(25);
   tbody.innerHTML = '';
 
   if (!agents || agents.length === 0) {
     tbody.innerHTML = `
-      <tr>
-        <td class="rank-num">01</td>
-        <td class="table-callsign">${state.agentName}</td>
+      <tr style="background: rgba(229, 169, 60, 0.15);">
+        <td class="rank-num">#01</td>
+        <td class="table-callsign">${state.agentName} ⭐ <span style="font-size: 8px; color: var(--text-muted);">(${state.agentSquadron})</span></td>
         <td>${state.agentRank}</td>
-        <td class="table-score">${state.agentScore} PTS</td>
+        <td class="table-score">${state.agentScore.toLocaleString()} PTS</td>
         <td class="table-accuracy">100%</td>
       </tr>
     `;
     return;
   }
 
-  agents.forEach((ag) => {
+  agents.forEach((ag, idx) => {
+    const isCurrentAgent = ag.callsign === state.agentName;
     const tr = document.createElement('tr');
+    if (isCurrentAgent) tr.style.background = 'rgba(229, 169, 60, 0.15)';
     tr.innerHTML = `
-      <td class="rank-num">#${ag.rankNumber}</td>
-      <td class="table-callsign">${ag.callsign} <span style="font-size: 8px; color: var(--text-muted);">(${ag.squadron || 'PARA SF'})</span></td>
+      <td class="rank-num">#${ag.rankNumber || idx + 1}</td>
+      <td class="table-callsign">${ag.callsign} ${isCurrentAgent ? '⭐' : ''} <span style="font-size: 8px; color: var(--text-muted);">(${ag.squadron || 'PARA SF'})</span></td>
       <td>${ag.clearanceRank}</td>
-      <td class="table-score">${ag.totalScore.toLocaleString()} PTS</td>
-      <td class="table-accuracy">${ag.accuracy}</td>
+      <td class="table-score">${(ag.totalScore || 0).toLocaleString()} PTS</td>
+      <td class="table-accuracy">${ag.accuracy || '100%'}</td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+async function loadLeaderboardScreen() {
+  const tbody = document.getElementById('leaderboard-tbody');
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--accent-cyan); padding: 16px;">📡 FETCHING NATIONAL OPERATIVES TELEMETRY...</td></tr>';
+  }
+
+  showScreen('leaderboard');
+
+  try {
+    const agents = await ConvexService.getLeaderboard(25);
+    renderLeaderboardRows(agents);
+  } catch (err) {
+    console.warn('[Leaderboard] fetch fallback:', err);
+    renderLeaderboardRows([]);
+  }
 }
 
 // --- 3D AR MISSION INITIALIZATION ---
@@ -819,7 +870,8 @@ function handleGunshotFire() {
     }
 
     if (statusBadge) {
-      statusBadge.textContent = `💥 DIRECT HIT! [${result.hits}/5 SHOTS LANDED]`;
+      const dirText = result.evasionDir ? ` [EVADING ${result.evasionDir}!]` : '';
+      statusBadge.textContent = `💥 DIRECT HIT!${dirText} [${result.hits}/5]`;
       statusBadge.style.borderColor = '#ff9933';
       statusBadge.style.color = '#ff9933';
     }
@@ -1041,6 +1093,15 @@ async function handleMissionOutcome(isSuccess, reason) {
       } else if (promoBadge) {
         promoBadge.style.display = 'none';
       }
+
+      try {
+        localStorage.setItem('dhurandar_agent', JSON.stringify({
+          name: state.agentName,
+          rank: state.agentRank,
+          score: state.agentScore,
+          squadron: state.agentSquadron
+        }));
+      } catch (e) {}
     }
   } catch (err) {
     console.warn('[Convex] Outcome record error:', err);
