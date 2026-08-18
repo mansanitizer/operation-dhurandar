@@ -19,6 +19,11 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
+// Only these origins may read responses from this server via CORS.
+const ALLOWED_ORIGINS = new Set([
+  'https://operationdhurandar.ashar.site',
+]);
+
 const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
   let pathname = parsedUrl.pathname;
@@ -30,32 +35,42 @@ const server = http.createServer((req, res) => {
 
   console.log(`[REQ] ${req.method} ${pathname} from ${req.socket.remoteAddress}`);
 
+  const origin = req.headers.origin;
+  const corsHeaders = ALLOWED_ORIGINS.has(origin)
+    ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
+    : {};
+
   fs.readFile(filePath, (err, content) => {
     if (err) {
       if (err.code === 'ENOENT') {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.writeHead(404, { 'Content-Type': 'text/plain', ...corsHeaders });
         res.end('404 Not Found');
       } else {
-        res.writeHead(500);
+        res.writeHead(500, corsHeaders);
         res.end(`Server Error: ${err.code}`);
       }
     } else {
       res.writeHead(200, {
         'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
-        'Access-Control-Allow-Origin': '*'
+        ...corsHeaders,
       });
       res.end(content);
     }
   });
 });
 
-const PORT = process.env.PORT || 5173;
-const HOST = '0.0.0.0';
+// Only auto-start when run directly (`node server.js`), not when imported
+// (e.g. by tests).
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const PORT = process.env.PORT || 5173;
+  const HOST = '0.0.0.0';
 
-server.listen(PORT, HOST, () => {
-  console.log(`====================================================`);
-  console.log(`[OPERATION DHURANDAR] Server active on 0.0.0.0:${PORT}`);
-  console.log(`  > Local:   http://localhost:${PORT}`);
-  console.log(`  > Network: http://192.168.1.7:${PORT}`);
-  console.log(`====================================================`);
-});
+  server.listen(PORT, HOST, () => {
+    console.log(`====================================================`);
+    console.log(`[OPERATION DHURANDAR] Server active on 0.0.0.0:${PORT}`);
+    console.log(`  > Local:   http://localhost:${PORT}`);
+    console.log(`====================================================`);
+  });
+}
+
+export { server, ALLOWED_ORIGINS };

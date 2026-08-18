@@ -108,14 +108,21 @@
 
         <div id="auth-form" class="auth-form">
           <div class="input-group">
-            <label for="agent-name">OPERATIVE CALLSIGN / ID</label>
+            <label for="agent-email">OPERATIVE EMAIL</label>
+            <input type="email" id="agent-email" placeholder="agent@example.com" autocomplete="email" />
+          </div>
+
+          <div class="input-group">
+            <label for="agent-name">OPERATIVE CALLSIGN / ID (NEW AGENTS ONLY)</label>
             <input type="text" id="agent-name" placeholder="e.g. DHURANDAR-1" autocomplete="off" />
           </div>
 
           <div class="input-group">
-            <label for="agent-passcode">SECURITY CLEARANCE PASSCODE (OPTIONAL)</label>
-            <input type="password" id="agent-passcode" placeholder="••••••••" autocomplete="off" />
+            <label for="agent-passcode">SECURITY CLEARANCE PASSWORD</label>
+            <input type="password" id="agent-passcode" placeholder="•••••••• (min 8 characters)" autocomplete="current-password" />
           </div>
+
+          <p id="auth-error" class="auth-error" style="display:none;"></p>
 
           <button type="button" id="btn-login" class="btn-primary">
             <span>AUTHENTICATE OPERATIVE CLEARANCE</span>
@@ -279,11 +286,11 @@
           <div class="dossier-visuals">
             <div class="photo-frame">
               <span class="photo-label">BIOMETRIC RECON</span>
-              <img id="dossier-face" src="/assets/target1_mugshot.jpg" alt="Target Face Mugshot" />
+              <img id="dossier-face" src="https://dhurandar-assets.pages.dev/ui/target1_mugshot.jpg" alt="Target Face Mugshot" />
             </div>
             <div class="photo-frame fullbody-frame">
               <span class="photo-label">FULL-BODY PROFILE</span>
-              <img id="dossier-body" src="/assets/target1_body.jpg" alt="Target Full Body Recon" />
+              <img id="dossier-body" src="https://dhurandar-assets.pages.dev/ui/target1_body.jpg" alt="Target Full Body Recon" />
             </div>
           </div>
 
@@ -461,7 +468,7 @@
           <div class="evidence-box">
             <span class="evidence-label">CONFIRMED PHOTO EVIDENCE</span>
             <div class="evidence-photo-container">
-              <img id="result-evidence-img" src="/assets/target1_mugshot.jpg" alt="Captured Target Recon" />
+              <img id="result-evidence-img" src="https://dhurandar-assets.pages.dev/ui/target1_mugshot.jpg" alt="Captured Target Recon" />
               <div class="stamp-neutralized" id="stamp-neutralized">NEUTRALIZED</div>
             </div>
           </div>
@@ -479,7 +486,7 @@
           <div class="memorial-card">
             <div class="memorial-hero-header">
               <div class="hero-photo-wrapper">
-                <img id="hero-image" src="/assets/hero_memorial.jpg" alt="Indian Braveheart Martyr" />
+                <img id="hero-image" src="https://dhurandar-assets.pages.dev/ui/hero_memorial.jpg" alt="Indian Braveheart Martyr" />
                 <div class="hero-decoration-badge" id="hero-decoration">ASHOKA CHAKRA</div>
               </div>
               <div class="hero-meta">

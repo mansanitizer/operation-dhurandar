@@ -59,7 +59,7 @@ function loadImageSafe(src) {
         const fallbackImg = new Image();
         fallbackImg.onload = () => resolve(fallbackImg);
         fallbackImg.onerror = () => resolve(null);
-        fallbackImg.src = '/assets/hero_memorial.jpg';
+        fallbackImg.src = 'https://dhurandar-assets.pages.dev/ui/hero_memorial.jpg';
       } else {
         resolve(null);
       }
@@ -178,13 +178,13 @@ export async function generateMemorialImage(hero = {}) {
   // Load hero image
   let heroImg = null;
   if (hero.id) {
-    heroImg = await loadImageSafe(`/assets/heroes/${hero.id}.jpg`);
+    heroImg = await loadImageSafe(`https://dhurandar-assets.pages.dev/heroes/${hero.id}.jpg`);
   }
   if (!heroImg && hero.image) {
     heroImg = await loadImageSafe(hero.image);
   }
   if (!heroImg) {
-    heroImg = await loadImageSafe('/assets/hero_memorial.jpg');
+    heroImg = await loadImageSafe('https://dhurandar-assets.pages.dev/ui/hero_memorial.jpg');
   }
 
   // Draw clipped image

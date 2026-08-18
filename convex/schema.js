@@ -4,8 +4,9 @@ import { v } from "convex/values";
 export default defineSchema({
   // 1. Agents / Operators Auth & Profile
   agents: defineTable({
+    email: v.string(), // lowercased, unique identity
+    passwordHash: v.string(), // "pbkdf2-sha256$<iterations>$<saltHex>$<hashHex>"
     callsign: v.string(),
-    passcode: v.optional(v.string()),
     clearanceRank: v.string(), // "2nd Lieutenant", "Captain", "Major", "Colonel", "Brigadier", "Balidan Director"
     totalScore: v.number(),
     missionsCompleted: v.number(),
@@ -16,7 +17,16 @@ export default defineSchema({
     eliminatedTargets: v.optional(v.array(v.string())), // Codenames of hostiles neutralized by this operative
     lastActive: v.number(),
   }).index("by_callsign", ["callsign"])
+    .index("by_email", ["email"])
     .index("by_score", ["totalScore"]),
+
+  // 1b. Active login sessions issued by convex/auth.js
+  sessions: defineTable({
+    token: v.string(),
+    agentId: v.id("agents"),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  }).index("by_token", ["token"]),
 
   // 2. Hostile Targets & Recon Database (Supports CDN links)
   targets: defineTable({
@@ -73,7 +83,6 @@ export default defineSchema({
     reason: v.string(),  // "CAPTURED" | "TIMEOUT" | "OFF_TARGET"
     scoreEarned: v.number(),
     timeRemaining: v.number(),
-    evidencePhoto: v.optional(v.union(v.string(), v.null())), // Base64 or snapshot URL
     timestamp: v.number(),
   }).index("by_agent", ["agentCallsign"])
     .index("by_timestamp", ["timestamp"]),

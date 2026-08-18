@@ -28,7 +28,6 @@ const state = {
   missionTimerInterval: null,
   timeLeft: 4.0,
   isTargetLocked: false,
-  capturedEvidence: null,
 };
 
 // --- DOM ELEMENTS ---
@@ -144,60 +143,82 @@ async function init() {
 
   // 4. Screen 1: Auth Button & Enter Key Handling
   const btnLogin = document.getElementById('btn-login');
+  const emailInput = document.getElementById('agent-email');
   const nameInput = document.getElementById('agent-name');
   const passInput = document.getElementById('agent-passcode');
+  const authErrorElem = document.getElementById('auth-error');
 
-  // Restore cached operative profile from localStorage if present
-  try {
-    const saved = localStorage.getItem('dhurandar_agent');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.name && nameInput) nameInput.value = parsed.name;
-      if (parsed.name) {
-        state.agentName = parsed.name;
-        state.agentRank = parsed.rank || '2nd Lieutenant';
-        state.agentScore = parsed.score || 0;
-        state.agentSquadron = 'PARA SF';
-        state.eliminatedTargets = parsed.eliminatedTargets || [];
+  const showAuthError = (msg) => {
+    if (!authErrorElem) return;
+    authErrorElem.textContent = msg;
+    authErrorElem.style.display = msg ? 'block' : 'none';
+  };
+
+  // Restore a session by verifying the cached token against the DB — never
+  // trust a locally-cached profile without server-side verification.
+  (async () => {
+    let cachedEmail = '';
+    try {
+      const token = localStorage.getItem('dhurandar_session_token');
+      cachedEmail = localStorage.getItem('dhurandar_email') || '';
+      if (emailInput && cachedEmail) emailInput.value = cachedEmail;
+      if (token) {
+        const agent = await ConvexService.restoreSession(token);
+        if (agent) {
+          state.agentName = agent.callsign;
+          state.agentRank = agent.clearanceRank || '2nd Lieutenant';
+          state.agentScore = agent.totalScore || 0;
+          state.agentSquadron = agent.squadron || 'PARA SF';
+          state.eliminatedTargets = agent.eliminatedTargets || [];
+        } else {
+          localStorage.removeItem('dhurandar_session_token');
+        }
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  })();
 
   const doLogin = async () => {
+    const emailVal = emailInput ? emailInput.value.trim() : '';
     const nameVal = nameInput ? nameInput.value.trim() : '';
-    const passVal = passInput ? passInput.value.trim() : '';
+    const passVal = passInput ? passInput.value : '';
     const squadVal = 'PARA SF';
 
-    state.agentName = nameVal ? nameVal.toUpperCase() : 'AGENT DHURANDAR';
-    state.agentSquadron = 'PARA SF';
+    showAuthError('');
+
+    if (!emailVal) {
+      showAuthError('Enter your operative email to authenticate.');
+      return;
+    }
+    if (!passVal || passVal.length < 8) {
+      showAuthError('Password must be at least 8 characters.');
+      return;
+    }
 
     playSound('beep', 1000);
 
-    // Authenticate with Convex DB backend
     try {
-      const authRes = await ConvexService.loginOrRegister(state.agentName, passVal, squadVal);
-      if (authRes && authRes.agent) {
-        state.agentName = authRes.agent.callsign || state.agentName;
-        state.agentRank = authRes.agent.clearanceRank || '2nd Lieutenant';
-        state.agentScore = authRes.agent.totalScore || 0;
-        state.agentSquadron = authRes.agent.squadron || 'PARA SF';
-        state.eliminatedTargets = authRes.agent.eliminatedTargets || state.eliminatedTargets || [];
+      const authRes = await ConvexService.loginOrRegisterWithEmail(emailVal, passVal, nameVal, squadVal);
+      if (!authRes || !authRes.agent) {
+        showAuthError('Authentication failed. Please try again.');
+        return;
       }
+
+      state.agentName = authRes.agent.callsign || state.agentName;
+      state.agentRank = authRes.agent.clearanceRank || '2nd Lieutenant';
+      state.agentScore = authRes.agent.totalScore || 0;
+      state.agentSquadron = authRes.agent.squadron || 'PARA SF';
+      state.eliminatedTargets = authRes.agent.eliminatedTargets || [];
+
+      try {
+        if (authRes.token) localStorage.setItem('dhurandar_session_token', authRes.token);
+        localStorage.setItem('dhurandar_email', emailVal);
+      } catch (e) {}
+
+      loadMainMenuScreen();
     } catch (err) {
-      console.warn('[AUTH] Convex login fallback:', err);
+      console.warn('[AUTH] Convex login error:', err);
+      showAuthError(err && err.message ? err.message.replace(/^.*?Error:\s*/, '') : 'Authentication failed. Please try again.');
     }
-
-    try {
-      localStorage.setItem('dhurandar_agent', JSON.stringify({
-        name: state.agentName,
-        rank: state.agentRank,
-        score: state.agentScore,
-        squadron: state.agentSquadron,
-        eliminatedTargets: state.eliminatedTargets
-      }));
-    } catch (e) {}
-
-    loadMainMenuScreen();
   };
 
   if (btnLogin) {
@@ -397,7 +418,7 @@ async function init() {
     // 2. Persist Salute to Convex Cloud DB in background
     if (curMem) {
       try {
-        const res = await ConvexService.recordSalute(curMem.id, state.agentName);
+        const res = await ConvexService.recordSalute(curMem.id);
         if (res && res.salutesCount) {
           curMem.salutesCount = res.salutesCount;
           const liveElem = document.getElementById('hero-salutes-count');
@@ -668,7 +689,7 @@ function loadHeroesScreen() {
     const card = document.createElement('div');
     card.className = 'hero-gallery-card';
     card.innerHTML = `
-      <img src="${hero.image || '/assets/hero_memorial.jpg'}" alt="${hero.name}" />
+      <img src="${hero.image || 'https://dhurandar-assets.pages.dev/ui/hero_memorial.jpg'}" alt="${hero.name}" />
       <div class="hero-gallery-body">
         <span class="archive-threat-tag" style="color: var(--accent-gold);">${hero.decoration}</span>
         <h3>${hero.name}</h3>
@@ -1131,12 +1152,6 @@ function handleGunshotFire() {
           statusBadge.style.color = '#00ff88';
         }
 
-        try {
-          state.capturedEvidence = arEngine.captureEvidencePhoto();
-        } catch (e) {
-          state.capturedEvidence = null;
-        }
-
         // Cinematic 1.5s delay before smooth transition to debrief screen
         setTimeout(() => {
           if (banner) banner.classList.remove('active');
@@ -1183,7 +1198,7 @@ async function handleMissionOutcome(isSuccess, reason) {
   const stampNeutralized = document.getElementById('stamp-neutralized');
 
   if (evidenceImg) {
-    evidenceImg.src = state.capturedEvidence || currentTarget.faceImage || '/assets/target1_mugshot.jpg';
+    evidenceImg.src = currentTarget.faceImage || 'https://dhurandar-assets.pages.dev/ui/target1_mugshot.jpg';
   }
 
   if (stampNeutralized) {
@@ -1232,7 +1247,7 @@ async function handleMissionOutcome(isSuccess, reason) {
   // Populate In Memoriam Memorial Hero Card
   if (currentMemorial) {
     const hImg = document.getElementById('hero-image');
-    if (hImg) hImg.src = currentMemorial.image || '/assets/hero_memorial.jpg';
+    if (hImg) hImg.src = currentMemorial.image || 'https://dhurandar-assets.pages.dev/ui/hero_memorial.jpg';
     const hName = document.getElementById('hero-name');
     if (hName) hName.textContent = currentMemorial.name || 'Indian Armed Forces Hero';
     const hUnit = document.getElementById('hero-unit');
@@ -1271,12 +1286,10 @@ async function handleMissionOutcome(isSuccess, reason) {
   // Asynchronously record score in Convex DB in background without blocking UI
   try {
     const outcomeData = await ConvexService.recordMissionOutcome({
-      agentCallsign: state.agentName,
       targetCodename: currentTarget.codename || 'HOSTILE',
       outcome: isSuccess ? 'SUCCESS' : 'FAILED',
       reason,
       timeRemaining: isSuccess ? state.timeLeft : 0,
-      evidencePhoto: null, // Avoid giant base64 payload over network
     });
 
     if (outcomeData) {

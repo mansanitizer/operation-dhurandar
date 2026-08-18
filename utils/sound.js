@@ -18,14 +18,10 @@ function getAudioContext() {
 // BGM State
 const BGM_MENU_SOURCES = [
   'https://dhurandar-assets.pages.dev/audio/army_of_minotaur.mp3',
-  './assets/audio/army_of_minotaur.mp3',
-  './cdn-assets/audio/army_of_minotaur.mp3'
 ];
 
 const BGM_LOGIN_SOURCES = [
   'https://dhurandar-assets.pages.dev/audio/login_theme.mp3',
-  './assets/audio/login_theme.mp3',
-  './cdn-assets/audio/login_theme.mp3'
 ];
 
 let menuBgmAudio = null;
@@ -545,11 +541,10 @@ export const Sound = {
   deathScream() {
     try {
       const screamSources = [
-        './assets/audio/scream.mp3',
-        './assets/audio/scream.wav',
-        './assets/audio/scream_tactical.wav',
-        './assets/audio/scream_dramatic.wav',
-        'https://dhurandar-assets.pages.dev/audio/scream.mp3'
+        'https://dhurandar-assets.pages.dev/audio/scream.mp3',
+        'https://dhurandar-assets.pages.dev/audio/scream.wav',
+        'https://dhurandar-assets.pages.dev/audio/scream_tactical.wav',
+        'https://dhurandar-assets.pages.dev/audio/scream_dramatic.wav',
       ];
 
       const audio = new Audio();

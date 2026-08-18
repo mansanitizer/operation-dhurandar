@@ -22,12 +22,22 @@ export const ConvexService = {
   client,
   isConnected,
 
-  // 1. Auth: Login or register agent
-  async loginOrRegister(callsign, passcode = "", squadron = "PARA SF") {
+  // Session token issued by convex/auth.js on login/register. Every
+  // authenticated mutation (scoring, salutes) is sent as this operative,
+  // never as a client-supplied callsign string.
+  sessionToken: null,
+
+  setSessionToken(token) {
+    this.sessionToken = token || null;
+  },
+
+  // 1. Auth: Register (if the email is new) or log in (verifying password)
+  async loginOrRegisterWithEmail(email, password, callsign, squadron = "PARA SF") {
     if (!client) {
       return {
         agent: {
-          callsign: callsign.toUpperCase() || "AGENT DHURANDAR",
+          email,
+          callsign: (callsign || "AGENT DHURANDAR").toUpperCase(),
           clearanceRank: "2nd Lieutenant",
           totalScore: 0,
           missionsCompleted: 0,
@@ -37,19 +47,43 @@ export const ConvexService = {
           badges: ["RECON READY"],
           eliminatedTargets: [],
         },
+        token: null,
         isNew: false,
       };
     }
+    const res = await client.mutation(api.auth.loginOrRegisterWithEmail, {
+      email,
+      password,
+      callsign,
+      squadron,
+    });
+    this.setSessionToken(res.token);
+    return res;
+  },
+
+  // Restore a session on app load by verifying a cached token against the DB
+  // (never trust a cached local profile without server verification).
+  async restoreSession(token) {
+    if (!client || !token) return null;
     try {
-      return await client.mutation(api.auth.loginOrRegister, {
-        callsign,
-        passcode,
-        squadron,
-      });
+      const agent = await client.query(api.auth.me, { token });
+      if (agent) this.setSessionToken(token);
+      return agent;
     } catch (err) {
-      console.error("[CONVEX] loginOrRegister failed:", err);
+      console.warn("[CONVEX] restoreSession failed:", err);
       return null;
     }
+  },
+
+  async logout() {
+    if (client && this.sessionToken) {
+      try {
+        await client.mutation(api.auth.logout, { token: this.sessionToken });
+      } catch (err) {
+        console.warn("[CONVEX] logout error:", err);
+      }
+    }
+    this.setSessionToken(null);
   },
 
   // 2. Fetch targets (with local fallback)
@@ -76,13 +110,17 @@ export const ConvexService = {
     }
   },
 
-  // 4. Record Salute / Tribute
-  async recordSalute(memorialId, agentCallsign, message) {
+  // 4. Record Salute / Tribute (requires an active session)
+  async recordSalute(memorialId, message) {
     if (!client) return { success: true, salutesCount: 1948 };
+    if (!this.sessionToken) {
+      console.warn("[CONVEX] recordSalute skipped: not signed in");
+      return { success: false, reason: "NOT_AUTHENTICATED" };
+    }
     try {
       const res = await client.mutation(api.memorials.salute, {
         memorialId: memorialId || "sandeep-unnikrishnan",
-        agentCallsign: (agentCallsign || "AGENT DHURANDAR").trim().toUpperCase(),
+        sessionToken: this.sessionToken,
         message: message || "Saluted with Highest National Honors 🇮🇳",
       });
       console.log("[CONVEX] Salute recorded live in DB:", res);
@@ -93,25 +131,14 @@ export const ConvexService = {
     }
   },
 
-  // 5. Record Mission Outcome & Scoring
-  async recordMissionOutcome({
-    agentCallsign,
-    targetCodename,
-    outcome,
-    reason,
-    timeRemaining,
-    evidencePhoto,
-  }) {
+  // 5. Record Mission Outcome & Scoring (requires an active session)
+  async recordMissionOutcome({ targetCodename, outcome, reason, timeRemaining }) {
     const payload = {
-      agentCallsign: (agentCallsign || "AGENT DHURANDAR").trim().toUpperCase(),
       targetCodename: (targetCodename || "VALI-1").trim(),
       outcome: outcome || "SUCCESS",
       reason: reason || "ELIMINATED",
       timeRemaining: typeof timeRemaining === "number" ? Math.max(0, timeRemaining) : 0,
     };
-    if (typeof evidencePhoto === "string" && evidencePhoto.length > 0) {
-      payload.evidencePhoto = evidencePhoto;
-    }
 
     if (!client) {
       const score = outcome === "SUCCESS" ? 1000 + Math.round(payload.timeRemaining * 200) : 0;
@@ -122,8 +149,15 @@ export const ConvexService = {
         promoted: false,
       };
     }
+    if (!this.sessionToken) {
+      console.warn("[CONVEX] recordMissionOutcome skipped: not signed in");
+      return null;
+    }
     try {
-      const res = await client.mutation(api.missions.logMissionOutcome, payload);
+      const res = await client.mutation(api.missions.logMissionOutcome, {
+        ...payload,
+        sessionToken: this.sessionToken,
+      });
       console.log("[CONVEX] Mission outcome logged successfully:", res);
       return res;
     } catch (err) {

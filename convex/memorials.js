@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server.js";
 import { v } from "convex/values";
+import { resolveAgentFromSession } from "./auth.js";
 
 // List all memorials in the Hall of Heroes
 export const list = query({
@@ -20,15 +21,17 @@ export const getById = query({
   },
 });
 
-// Pay Tribute / Salute a braveheart
+// Pay Tribute / Salute a braveheart. Requires a signed-in agent — resolved
+// from the session token rather than a client-supplied callsign string.
 export const salute = mutation({
   args: {
     memorialId: v.string(),
-    agentCallsign: v.string(),
+    sessionToken: v.string(),
     message: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const cleanCallsign = (args.agentCallsign || "AGENT DHURANDAR").trim().toUpperCase();
+    const agent = await resolveAgentFromSession(ctx, args.sessionToken);
+    const cleanCallsign = agent.callsign;
     const now = Date.now();
 
     // 1. Find memorial by slug
@@ -54,17 +57,10 @@ export const salute = mutation({
     });
 
     // 3. Increment agent salutesGiven count
-    const agent = await ctx.db
-      .query("agents")
-      .withIndex("by_callsign", (q) => q.eq("callsign", cleanCallsign))
-      .first();
-
-    if (agent) {
-      await ctx.db.patch(agent._id, {
-        salutesGiven: (agent.salutesGiven || 0) + 1,
-        lastActive: now,
-      });
-    }
+    await ctx.db.patch(agent._id, {
+      salutesGiven: (agent.salutesGiven || 0) + 1,
+      lastActive: now,
+    });
 
     // 4. Push to Live Ops Feed
     await ctx.db.insert("opsFeed", {

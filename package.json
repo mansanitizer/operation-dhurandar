@@ -8,9 +8,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server.js",
-    "convex:dev": "convex dev"
+    "convex:dev": "convex dev",
+    "lint": "eslint .",
+    "test": "node --test tests/*.test.js"
   },
   "devDependencies": {
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
     "vite": "^8.2.1"
   },
   "dependencies": {

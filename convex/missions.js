@@ -1,19 +1,21 @@
 import { query, mutation } from "./_generated/server.js";
 import { v } from "convex/values";
-import { calculateRank } from "./auth.js";
+import { calculateRank, resolveAgentFromSession } from "./auth.js";
 
-// Record mission outcome, calculate points, update agent stats and ops feed
+// Record mission outcome, calculate points, update agent stats and ops feed.
+// The agent is resolved from the caller's session token, not a client-
+// supplied callsign, so a client can only ever score against its own account.
 export const logMissionOutcome = mutation({
   args: {
-    agentCallsign: v.string(),
+    sessionToken: v.string(),
     targetCodename: v.string(),
     outcome: v.string(), // "SUCCESS" | "FAILED"
     reason: v.string(),  // "ELIMINATED" | "TIMEOUT" | "OFF_TARGET" | "ABORTED"
     timeRemaining: v.number(),
-    evidencePhoto: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
-    const cleanCallsign = args.agentCallsign.trim().toUpperCase() || "AGENT DHURANDAR";
+    const agent = await resolveAgentFromSession(ctx, args.sessionToken);
+    const cleanCallsign = agent.callsign;
     const now = Date.now();
 
     // 1. Fetch target details
@@ -42,7 +44,6 @@ export const logMissionOutcome = mutation({
       reason: args.reason,
       scoreEarned: scoreEarned,
       timeRemaining: args.timeRemaining,
-      evidencePhoto: args.evidencePhoto,
       timestamp: now,
     });
 
@@ -55,28 +56,6 @@ export const logMissionOutcome = mutation({
     }
 
     // 5. Update Agent Service Record & Clearance Rank
-    let agent = await ctx.db
-      .query("agents")
-      .withIndex("by_callsign", (q) => q.eq("callsign", cleanCallsign))
-      .first();
-
-    if (!agent) {
-      const newAgent = {
-        callsign: cleanCallsign,
-        passcode: "",
-        clearanceRank: "2nd Lieutenant",
-        totalScore: 0,
-        missionsCompleted: 0,
-        missionsFailed: 0,
-        salutesGiven: 0,
-        squadron: "PARA SF",
-        badges: ["RECON READY"],
-        lastActive: now,
-      };
-      const agentId = await ctx.db.insert("agents", newAgent);
-      agent = { _id: agentId, ...newAgent };
-    }
-
     const previousRank = agent.clearanceRank;
     const newTotalScore = (agent.totalScore || 0) + scoreEarned;
     const newMissionsCompleted = (agent.missionsCompleted || 0) + (args.outcome === "SUCCESS" ? 1 : 0);
@@ -145,6 +124,34 @@ export const logMissionOutcome = mutation({
       eliminatedTargets: updatedEliminated,
       timeBonus: args.outcome === "SUCCESS" ? Math.round(Math.max(0, args.timeRemaining) * 200) : 0,
     };
+  },
+});
+
+// One-time migration: strip any legacy base64 evidencePhoto payloads left
+// over from before evidence photos were removed. Run this once (e.g. `npx
+// convex run missions:purgeLegacyEvidencePhotos`) before deploying the
+// schema above, then this function can be deleted.
+export const purgeLegacyEvidencePhotos = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const missions = await ctx.db.query("missions").collect();
+    let purged = 0;
+    for (const m of missions) {
+      if ("evidencePhoto" in m) {
+        await ctx.db.replace(m._id, {
+          agentCallsign: m.agentCallsign,
+          targetCodename: m.targetCodename,
+          targetName: m.targetName,
+          outcome: m.outcome,
+          reason: m.reason,
+          scoreEarned: m.scoreEarned,
+          timeRemaining: m.timeRemaining,
+          timestamp: m.timestamp,
+        });
+        purged++;
+      }
+    }
+    return { purged, totalMissions: missions.length };
   },
 });
 

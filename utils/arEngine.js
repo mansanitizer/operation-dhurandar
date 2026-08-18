@@ -688,63 +688,6 @@ class AREngine {
     }
   }
 
-  // Shutter Snapshot Evidence Capturer
-  captureEvidencePhoto() {
-    try {
-      const offCanvas = document.createElement('canvas');
-      const w = this.canvas && this.canvas.width ? this.canvas.width : 1280;
-      const h = this.canvas && this.canvas.height ? this.canvas.height : 720;
-      offCanvas.width = w;
-      offCanvas.height = h;
-
-      const ctx = offCanvas.getContext('2d');
-
-      // 1. Draw video background (safe try-catch for mobile WebKit cross-origin)
-      if (this.isCameraActive && this.videoElement && this.videoElement.videoWidth) {
-        try {
-          ctx.drawImage(this.videoElement, 0, 0, w, h);
-        } catch (e) {
-          ctx.fillStyle = '#070a0b';
-          ctx.fillRect(0, 0, w, h);
-        }
-      } else {
-        ctx.fillStyle = '#070a0b';
-        ctx.fillRect(0, 0, w, h);
-      }
-
-      // 2. Draw 3D Target Layer
-      if (this.canvas) {
-        try {
-          ctx.drawImage(this.canvas, 0, 0, w, h);
-        } catch (e) {}
-      }
-
-      // 3. Tactical Military Stamp
-      ctx.strokeStyle = '#00f2fe';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(20, 20, w - 40, h - 40);
-
-      ctx.fillStyle = '#e5a93c';
-      ctx.font = 'bold 18px monospace';
-      ctx.fillText('TOP SECRET // OPERATION DHURANDAR RECON EVIDENCE', 40, 60);
-
-      const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '14px monospace';
-      ctx.fillText(`TIMESTAMP: ${timestamp}`, 40, 85);
-
-      try {
-        return offCanvas.toDataURL('image/jpeg', 0.8);
-      } catch (e) {
-        console.warn('[AR] Canvas toDataURL security restriction:', e);
-        return null;
-      }
-    } catch (err) {
-      console.warn('[AR] Evidence capture fallback:', err);
-      return null;
-    }
-  }
-
   stop() {
     if (this.ctx && this.canvas) {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
